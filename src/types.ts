@@ -36,6 +36,7 @@ export interface Collaborator {
   email: string;
   name?: string;
   role: 'editor' | 'admin';
+  password?: string;
   createdAt?: any;
   addedBy?: string;
 }

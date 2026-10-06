@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { authService, AuthUser } from '../lib/authService';
-import { Lock, User, Github, AlertCircle, KeyRound, ExternalLink } from 'lucide-react';
+import { authService } from '../lib/authService';
+import { Lock, User, Github, AlertCircle, KeyRound, ExternalLink, ShieldCheck } from 'lucide-react';
 
 export default function Login() {
   const [tab, setTab] = useState<'credentials' | 'github'>('credentials');
@@ -24,13 +24,19 @@ export default function Login() {
   const handleCredentialsLogin = (e: React.FormEvent) => {
     e.preventDefault();
     setErrorStatus(null);
+
+    if (!identifier.trim() || !password) {
+      setErrorStatus("Por favor, preencha o usuário e a senha.");
+      return;
+    }
+
     setLoading(true);
 
     try {
       authService.login(identifier, password);
       navigate('/postar');
     } catch (err: any) {
-      setErrorStatus(err.message || "Erro ao entrar.");
+      setErrorStatus(err.message || "Erro ao entrar. Verifique suas credenciais.");
     } finally {
       setLoading(false);
     }
@@ -39,6 +45,12 @@ export default function Login() {
   const handleGitHubLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorStatus(null);
+
+    if (!githubToken.trim()) {
+      setErrorStatus("Informe o seu token de acesso pessoal do GitHub.");
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -55,8 +67,8 @@ export default function Login() {
     <div className="container mx-auto px-4 py-16 flex flex-col items-center justify-center min-h-[75vh]">
       <div className="text-center mb-8">
         <h1 className="text-4xl md:text-5xl font-black uppercase tracking-tighter mb-2">Área Restrita</h1>
-        <p className="text-gray-500 font-bold uppercase tracking-widest text-xs">
-          Portal de Notícias MARÍLIAJÁ (GitHub Edition)
+        <p className="text-gray-500 font-bold uppercase tracking-widest text-xs flex items-center justify-center gap-2">
+          <ShieldCheck size={14} className="text-[#FF0000]" /> Acesso Seguro para Administradores e Redatores
         </p>
       </div>
 
@@ -68,7 +80,7 @@ export default function Login() {
             onClick={() => { setTab('credentials'); setErrorStatus(null); }}
             className={`flex-1 py-2.5 rounded-lg transition-all flex items-center justify-center gap-2 ${tab === 'credentials' ? 'bg-black text-white shadow' : 'text-gray-500 hover:text-black'}`}
           >
-            <User size={14} /> Usuário / E-mail
+            <User size={14} /> Login com Senha
           </button>
           <button
             type="button"
@@ -81,13 +93,13 @@ export default function Login() {
 
         {/* Error message */}
         {errorStatus && (
-          <div className="bg-red-50 text-red-600 p-4 rounded-xl mb-6 text-xs font-bold border-2 border-red-200 flex items-start gap-2.5">
+          <div className="bg-red-50 text-red-600 p-4 rounded-xl mb-6 text-xs font-bold border-2 border-red-200 flex items-start gap-2.5 animate-in fade-in">
             <AlertCircle size={18} className="shrink-0 mt-0.5" />
             <div className="leading-tight">{errorStatus}</div>
           </div>
         )}
 
-        {/* TAB 1: USERNAME / EMAIL LOGIN */}
+        {/* TAB 1: USERNAME / EMAIL + PASSWORD LOGIN */}
         {tab === 'credentials' && (
           <form onSubmit={handleCredentialsLogin} className="space-y-4">
             <div>
@@ -99,7 +111,7 @@ export default function Login() {
                 <input
                   type="text"
                   required
-                  placeholder="admin, tomsoftwar ou seu e-mail"
+                  placeholder="Seu usuário ou e-mail cadastrado"
                   value={identifier}
                   onChange={(e) => setIdentifier(e.target.value)}
                   className="w-full pl-10 pr-4 py-3 border-2 border-gray-200 rounded-xl font-bold text-sm outline-none focus:border-[#FF0000] transition-colors"
@@ -109,13 +121,14 @@ export default function Login() {
 
             <div>
               <label className="block text-[10px] font-black uppercase tracking-widest text-gray-500 mb-1">
-                Senha (Opcional)
+                Senha de Acesso *
               </label>
               <div className="relative">
                 <Lock className="absolute left-3.5 top-3.5 text-gray-400" size={18} />
                 <input
                   type="password"
-                  placeholder="******"
+                  required
+                  placeholder="Digite sua senha"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="w-full pl-10 pr-4 py-3 border-2 border-gray-200 rounded-xl font-bold text-sm outline-none focus:border-[#FF0000] transition-colors"
@@ -136,10 +149,6 @@ export default function Login() {
                 )}
               </button>
             </div>
-
-            <p className="text-[11px] text-gray-400 text-center font-bold uppercase tracking-wider pt-2">
-              Acesso Master: Digite <strong>admin</strong> ou <strong>tomsoftwar</strong>
-            </p>
           </form>
         )}
 
@@ -147,7 +156,7 @@ export default function Login() {
         {tab === 'github' && (
           <form onSubmit={handleGitHubLogin} className="space-y-4">
             <p className="text-xs text-gray-600 font-medium">
-              Entre com seu <strong>GitHub Personal Access Token (PAT)</strong> para postar notícias e sincronizar commits automaticamente no repositório.
+              Acesso seguro via <strong>GitHub Personal Access Token</strong>. O acesso só é concedido se o usuário do GitHub for o proprietário do repositório ou um colaborador cadastrado.
             </p>
 
             <div>

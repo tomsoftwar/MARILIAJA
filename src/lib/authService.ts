@@ -7,6 +7,10 @@ export interface AuthUser extends UserProfile {
 const USER_SESSION_KEY = 'mj_auth_user';
 const COLLABORATORS_KEY = 'mj_collaborators';
 const GITHUB_SETTINGS_KEY = 'mj_github_settings';
+const MASTER_PASSWORD_KEY = 'mj_admin_master_password';
+
+// Initial default master password for tomsoftwar / admin
+const DEFAULT_MASTER_PASSWORD = 'mariliaja@2026';
 
 type AuthListener = (user: AuthUser | null) => void;
 const authListeners: Set<AuthListener> = new Set();
@@ -16,6 +20,7 @@ const DEFAULT_COLLABORATORS: Collaborator[] = [
     email: 'tomsoftwar@gmail.com',
     name: 'TomSoft (Master Admin)',
     role: 'admin',
+    password: DEFAULT_MASTER_PASSWORD,
     createdAt: new Date().toISOString(),
     addedBy: 'system'
   },
@@ -23,6 +28,7 @@ const DEFAULT_COLLABORATORS: Collaborator[] = [
     email: 'mendsassessoria@gmail.com',
     name: 'Mends Assessoria',
     role: 'admin',
+    password: DEFAULT_MASTER_PASSWORD,
     createdAt: new Date().toISOString(),
     addedBy: 'system'
   }
@@ -53,6 +59,22 @@ export const authService = {
     };
   },
 
+  getMasterPassword(): string {
+    return localStorage.getItem(MASTER_PASSWORD_KEY) || DEFAULT_MASTER_PASSWORD;
+  },
+
+  changeMasterPassword(currentPassword: string, newPassword: string): boolean {
+    const current = this.getMasterPassword();
+    if (currentPassword !== current) {
+      throw new Error("A senha atual informada está incorreta.");
+    }
+    if (!newPassword || newPassword.length < 6) {
+      throw new Error("A nova senha deve conter no mínimo 6 caracteres.");
+    }
+    localStorage.setItem(MASTER_PASSWORD_KEY, newPassword);
+    return true;
+  },
+
   getCollaborators(): Collaborator[] {
     try {
       const stored = localStorage.getItem(COLLABORATORS_KEY);
@@ -67,7 +89,7 @@ export const authService = {
     return DEFAULT_COLLABORATORS;
   },
 
-  addCollaborator(collaborator: { email: string; name?: string; role: 'editor' | 'admin'; addedBy?: string }): Collaborator {
+  addCollaborator(collaborator: { email: string; name?: string; role: 'editor' | 'admin'; password?: string; addedBy?: string }): Collaborator {
     const list = this.getCollaborators();
     const cleanEmail = collaborator.email.toLowerCase().trim();
 
@@ -75,10 +97,15 @@ export const authService = {
       throw new Error(`O colaborador com e-mail/usuário "${cleanEmail}" já está cadastrado.`);
     }
 
+    if (!collaborator.password || collaborator.password.length < 4) {
+      throw new Error("Defina uma senha de acesso para o colaborador (mínimo 4 caracteres).");
+    }
+
     const newCollab: Collaborator = {
       email: cleanEmail,
       name: collaborator.name?.trim() || cleanEmail,
       role: collaborator.role,
+      password: collaborator.password,
       addedBy: collaborator.addedBy || 'admin',
       createdAt: new Date().toISOString()
     };
@@ -88,16 +115,32 @@ export const authService = {
     return newCollab;
   },
 
+  updateCollaboratorPassword(email: string, newPassword: string): void {
+    if (!newPassword || newPassword.length < 4) {
+      throw new Error("A senha deve conter no mínimo 4 caracteres.");
+    }
+    const list = this.getCollaborators();
+    const cleanEmail = email.toLowerCase().trim();
+    const index = list.findIndex(c => c.email.toLowerCase() === cleanEmail);
+    if (index === -1) throw new Error("Colaborador não encontrado.");
+
+    list[index].password = newPassword;
+    localStorage.setItem(COLLABORATORS_KEY, JSON.stringify(list));
+  },
+
   removeCollaborator(email: string): void {
     const list = this.getCollaborators();
     const filtered = list.filter(c => c.email.toLowerCase() !== email.toLowerCase());
     localStorage.setItem(COLLABORATORS_KEY, JSON.stringify(filtered));
   },
 
-  // Login with Email or Username and Password
+  // Secure Login with mandatory password check!
   login(identifier: string, password?: string): AuthUser {
     const cleanId = identifier.toLowerCase().trim();
     if (!cleanId) throw new Error("Informe seu e-mail ou nome de usuário.");
+    if (!password) throw new Error("A senha é obrigatória para acessar o painel.");
+
+    const masterPass = this.getMasterPassword();
 
     // 1. Check Master Admins
     const isMasterAdmin = 
@@ -107,6 +150,10 @@ export const authService = {
       cleanId === 'mendsassessoria@gmail.com';
 
     if (isMasterAdmin) {
+      if (password !== masterPass) {
+        throw new Error("Senha incorreta para o administrador.");
+      }
+
       const user: AuthUser = {
         uid: 'admin-' + cleanId,
         email: cleanId.includes('@') ? cleanId : `${cleanId}@mariliaja.com.br`,
@@ -123,6 +170,11 @@ export const authService = {
     const found = collabs.find(c => c.email.toLowerCase() === cleanId);
 
     if (found) {
+      const expectedPassword = found.password || masterPass;
+      if (password !== expectedPassword) {
+        throw new Error("Senha incorreta. Verifique suas credenciais.");
+      }
+
       const user: AuthUser = {
         uid: 'user-' + found.email.replace(/[^a-zA-Z0-9]/g, '_'),
         email: found.email,
@@ -134,7 +186,7 @@ export const authService = {
       return user;
     }
 
-    throw new Error(`Acesso Não Autorizado. O identificador "${cleanId}" não está cadastrado na lista de colaboradores.`);
+    throw new Error("Usuário ou senha incorretos. Acesso restrito a colaboradores autorizados.");
   },
 
   // Login with GitHub Personal Access Token (PAT)
@@ -163,7 +215,11 @@ export const authService = {
       const collabs = this.getCollaborators();
       const collab = collabs.find(c => c.email.toLowerCase() === email || c.email.toLowerCase() === login);
 
-      const role: 'admin' | 'editor' = (isMasterAdmin || collab?.role === 'admin') ? 'admin' : (collab ? 'editor' : 'admin');
+      if (!isMasterAdmin && !collab) {
+        throw new Error(`A conta do GitHub @${ghUser.login} não está cadastrada como colaborador no portal.`);
+      }
+
+      const role: 'admin' | 'editor' = (isMasterAdmin || collab?.role === 'admin') ? 'admin' : 'editor';
 
       const user: AuthUser = {
         uid: 'gh-' + ghUser.id,
@@ -201,7 +257,7 @@ export const authService = {
         return JSON.parse(stored);
       }
     } catch (e) {}
-    return { repo: 'tomsoftwar/portal-mariliaja', branch: 'main', token: '' };
+    return { repo: 'tomsoftwar/MARILIAJA', branch: 'main', token: '' };
   },
 
   saveGitHubSettings(settings: { repo: string; branch: string; token: string }): void {

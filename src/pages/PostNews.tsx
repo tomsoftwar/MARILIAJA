@@ -43,7 +43,14 @@ export default function PostNews() {
   const [collabEmail, setCollabEmail] = useState('');
   const [collabName, setCollabName] = useState('');
   const [collabRole, setCollabRole] = useState<'editor' | 'admin'>('editor');
+  const [collabPassword, setCollabPassword] = useState('');
   const [collabLoading, setCollabLoading] = useState(false);
+
+  // Security / Password change state
+  const [currentMasterPass, setCurrentMasterPass] = useState('');
+  const [newMasterPass, setNewMasterPass] = useState('');
+  const [editingCollabPassEmail, setEditingCollabPassEmail] = useState<string | null>(null);
+  const [newCollabPass, setNewCollabPass] = useState('');
 
   // GitHub Sync state
   const [githubSettings, setGithubSettings] = useState(authService.getGitHubSettings());
@@ -156,18 +163,45 @@ export default function PostNews() {
         email: collabEmail,
         name: collabName,
         role: collabRole,
+        password: collabPassword,
         addedBy: user.email
       });
 
       setCollaboratorsList(authService.getCollaborators());
-      setSuccessStatus(`Colaborador (${collabEmail}) cadastrado com sucesso!`);
+      setSuccessStatus(`Colaborador (${collabEmail}) cadastrado com sucesso com senha de acesso!`);
       setCollabEmail('');
       setCollabName('');
       setCollabRole('editor');
+      setCollabPassword('');
     } catch (err: any) {
       setErrorStatus(err.message || "Erro ao adicionar colaborador.");
     } finally {
       setCollabLoading(false);
+    }
+  };
+
+  const handleChangeMasterPassword = (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      authService.changeMasterPassword(currentMasterPass, newMasterPass);
+      setSuccessStatus("Senha do Administrador Master alterada com sucesso!");
+      setCurrentMasterPass('');
+      setNewMasterPass('');
+    } catch (err: any) {
+      setErrorStatus(err.message || "Erro ao alterar a senha do Administrador.");
+    }
+  };
+
+  const handleUpdateCollabPassword = (email: string) => {
+    if (!newCollabPass) return;
+    try {
+      authService.updateCollaboratorPassword(email, newCollabPass);
+      setCollaboratorsList(authService.getCollaborators());
+      setSuccessStatus(`Senha do colaborador (${email}) atualizada com sucesso!`);
+      setEditingCollabPassEmail(null);
+      setNewCollabPass('');
+    } catch (err: any) {
+      setErrorStatus(err.message || "Erro ao alterar senha do colaborador.");
     }
   };
 
@@ -422,23 +456,23 @@ export default function PostNews() {
             </div>
 
             <form onSubmit={handleAddCollaborator} className="grid grid-cols-1 md:grid-cols-12 gap-4">
-              <div className="md:col-span-5 space-y-1">
+              <div className="md:col-span-4 space-y-1">
                 <label className="text-[10px] font-black uppercase tracking-widest text-gray-500">
-                  E-mail ou Usuário do Colaborador *
+                  E-mail ou Usuário *
                 </label>
                 <input 
                   type="text"
                   required
-                  placeholder="ex: jornalista@gmail.com ou carlos_silva"
+                  placeholder="ex: carlos_silva ou carlos@email.com"
                   className="w-full border-2 border-gray-200 bg-white p-3.5 rounded-xl font-bold focus:border-[#FF0000] outline-none transition-all text-sm"
                   value={collabEmail}
                   onChange={(e) => setCollabEmail(e.target.value)}
                 />
               </div>
 
-              <div className="md:col-span-4 space-y-1">
+              <div className="md:col-span-3 space-y-1">
                 <label className="text-[10px] font-black uppercase tracking-widest text-gray-500">
-                  Nome / Identificação
+                  Nome Completo
                 </label>
                 <input 
                   type="text"
@@ -451,15 +485,29 @@ export default function PostNews() {
 
               <div className="md:col-span-3 space-y-1">
                 <label className="text-[10px] font-black uppercase tracking-widest text-gray-500">
-                  Função / Permissão
+                  Senha de Acesso *
+                </label>
+                <input 
+                  type="password"
+                  required
+                  placeholder="Mínimo 4 caracteres"
+                  className="w-full border-2 border-gray-200 bg-white p-3.5 rounded-xl font-bold focus:border-[#FF0000] outline-none transition-all text-sm"
+                  value={collabPassword}
+                  onChange={(e) => setCollabPassword(e.target.value)}
+                />
+              </div>
+
+              <div className="md:col-span-2 space-y-1">
+                <label className="text-[10px] font-black uppercase tracking-widest text-gray-500">
+                  Função
                 </label>
                 <select 
                   className="w-full border-2 border-gray-200 bg-white p-3.5 rounded-xl font-black text-xs uppercase focus:border-[#FF0000] outline-none cursor-pointer transition-all"
                   value={collabRole}
                   onChange={(e) => setCollabRole(e.target.value as 'editor' | 'admin')}
                 >
-                  <option value="editor">Colaborador (Editor)</option>
-                  <option value="admin">Administrador (Total)</option>
+                  <option value="editor">Colaborador</option>
+                  <option value="admin">Administrador</option>
                 </select>
               </div>
 
@@ -476,9 +524,58 @@ export default function PostNews() {
                     <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                   ) : (
                     <>
-                      <UserCheck size={16} /> Cadastrar Colaborador
+                      <UserCheck size={16} /> Cadastrar Colaborador com Senha
                     </>
                   )}
+                </button>
+              </div>
+            </form>
+          </div>
+
+          {/* Master Admin Security / Password Change Box */}
+          <div className="bg-white border-4 border-black p-8 rounded-2xl shadow-sm">
+            <h3 className="text-xl font-black uppercase tracking-tight flex items-center gap-2 mb-2">
+              <Shield size={20} className="text-[#FF0000]" /> Segurança da Conta Master (Alterar Senha do Administrador)
+            </h3>
+            <p className="text-xs text-gray-500 font-bold uppercase tracking-wider mb-6">
+              Mantenha seu portal protegido alterando a senha master sempre que necessário.
+            </p>
+
+            <form onSubmit={handleChangeMasterPassword} className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+              <div>
+                <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 block mb-1">
+                  Senha Master Atual *
+                </label>
+                <input
+                  type="password"
+                  required
+                  placeholder="Digite a senha atual"
+                  className="w-full border-2 border-gray-200 p-3 rounded-xl font-bold text-sm outline-none focus:border-[#FF0000]"
+                  value={currentMasterPass}
+                  onChange={(e) => setCurrentMasterPass(e.target.value)}
+                />
+              </div>
+
+              <div>
+                <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 block mb-1">
+                  Nova Senha Master *
+                </label>
+                <input
+                  type="password"
+                  required
+                  placeholder="Mínimo 6 caracteres"
+                  className="w-full border-2 border-gray-200 p-3 rounded-xl font-bold text-sm outline-none focus:border-[#FF0000]"
+                  value={newMasterPass}
+                  onChange={(e) => setNewMasterPass(e.target.value)}
+                />
+              </div>
+
+              <div>
+                <button
+                  type="submit"
+                  className="w-full bg-[#FF0000] text-white py-3 px-6 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-black transition-colors"
+                >
+                  Salvar Nova Senha
                 </button>
               </div>
             </form>
@@ -492,40 +589,76 @@ export default function PostNews() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {collaboratorsList.map((collab) => (
-                <div key={collab.email} className="bg-white border-2 border-black p-5 rounded-xl flex items-center justify-between gap-4">
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <p className="font-black text-base truncate">{collab.name || collab.email}</p>
-                      <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded ${collab.role === 'admin' ? 'bg-black text-white' : 'bg-red-100 text-[#FF0000]'}`}>
-                        {collab.role === 'admin' ? 'Administrador' : 'Colaborador'}
-                      </span>
+                <div key={collab.email} className="bg-white border-2 border-black p-5 rounded-xl flex flex-col justify-between gap-4">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="font-black text-base truncate">{collab.name || collab.email}</p>
+                        <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded ${collab.role === 'admin' ? 'bg-black text-white' : 'bg-red-100 text-[#FF0000]'}`}>
+                          {collab.role === 'admin' ? 'Administrador' : 'Colaborador'}
+                        </span>
+                      </div>
+                      <p className="text-xs text-gray-500 font-bold truncate mt-0.5">{collab.email}</p>
                     </div>
-                    <p className="text-xs text-gray-500 font-bold truncate mt-0.5">{collab.email}</p>
+
+                    <div>
+                      {confirmDeleteCollabEmail === collab.email ? (
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => handleDeleteCollaborator(collab.email)}
+                            className="bg-red-600 text-white px-3 py-1.5 rounded font-black text-[10px] uppercase hover:bg-black transition-colors"
+                          >
+                            Confirmar
+                          </button>
+                          <button
+                            onClick={() => setConfirmDeleteCollabEmail(null)}
+                            className="bg-gray-200 text-black px-2 py-1.5 rounded font-black text-[10px] uppercase hover:bg-gray-300"
+                          >
+                            X
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => setConfirmDeleteCollabEmail(collab.email)}
+                          className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          title="Revogar Acesso"
+                        >
+                          <Trash2 size={18} />
+                        </button>
+                      )}
+                    </div>
                   </div>
 
-                  <div>
-                    {confirmDeleteCollabEmail === collab.email ? (
-                      <div className="flex items-center gap-2">
+                  {/* Reset collaborator password */}
+                  <div className="pt-3 border-t border-gray-100 flex items-center justify-between gap-2">
+                    {editingCollabPassEmail === collab.email ? (
+                      <div className="flex items-center gap-2 w-full">
+                        <input
+                          type="password"
+                          placeholder="Nova senha"
+                          className="border border-gray-300 rounded px-2 py-1 text-xs font-bold w-full outline-none focus:border-[#FF0000]"
+                          value={newCollabPass}
+                          onChange={(e) => setNewCollabPass(e.target.value)}
+                        />
                         <button
-                          onClick={() => handleDeleteCollaborator(collab.email)}
-                          className="bg-red-600 text-white px-3 py-1.5 rounded font-black text-[10px] uppercase hover:bg-black transition-colors"
+                          onClick={() => handleUpdateCollabPassword(collab.email)}
+                          className="bg-black text-white px-3 py-1 rounded text-[10px] font-black uppercase hover:bg-[#FF0000]"
                         >
-                          Confirmar
+                          Salvar
                         </button>
                         <button
-                          onClick={() => setConfirmDeleteCollabEmail(null)}
-                          className="bg-gray-200 text-black px-2 py-1.5 rounded font-black text-[10px] uppercase hover:bg-gray-300"
+                          onClick={() => setEditingCollabPassEmail(null)}
+                          className="bg-gray-200 text-black px-2 py-1 rounded text-[10px] font-black uppercase"
                         >
                           X
                         </button>
                       </div>
                     ) : (
                       <button
-                        onClick={() => setConfirmDeleteCollabEmail(collab.email)}
-                        className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                        title="Revogar Acesso"
+                        onClick={() => { setEditingCollabPassEmail(collab.email); setNewCollabPass(''); }}
+                        className="text-[10px] font-black uppercase text-gray-500 hover:text-black underline"
                       >
-                        <Trash2 size={18} />
+                        Redefinir Senha do Colaborador
                       </button>
                     )}
                   </div>
