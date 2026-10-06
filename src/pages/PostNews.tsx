@@ -49,6 +49,7 @@ export default function PostNews() {
   // Security / Password change state
   const [currentMasterPass, setCurrentMasterPass] = useState('');
   const [newMasterPass, setNewMasterPass] = useState('');
+  const [passwordSuccessMessage, setPasswordSuccessMessage] = useState<string | null>(null);
   const [editingCollabPassEmail, setEditingCollabPassEmail] = useState<string | null>(null);
   const [newCollabPass, setNewCollabPass] = useState('');
 
@@ -182,9 +183,12 @@ export default function PostNews() {
 
   const handleChangeMasterPassword = (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorStatus(null);
+    setPasswordSuccessMessage(null);
     try {
       authService.changeMasterPassword(currentMasterPass, newMasterPass);
-      setSuccessStatus("Senha do Administrador Master alterada com sucesso!");
+      setSuccessStatus("SENHA ALTERADA COM SUCESSO!");
+      setPasswordSuccessMessage("SENHA ALTERADA COM SUCESSO!");
       setCurrentMasterPass('');
       setNewMasterPass('');
     } catch (err: any) {
@@ -194,10 +198,11 @@ export default function PostNews() {
 
   const handleUpdateCollabPassword = (email: string) => {
     if (!newCollabPass) return;
+    setErrorStatus(null);
     try {
       authService.updateCollaboratorPassword(email, newCollabPass);
       setCollaboratorsList(authService.getCollaborators());
-      setSuccessStatus(`Senha do colaborador (${email}) atualizada com sucesso!`);
+      setSuccessStatus("SENHA ALTERADA COM SUCESSO!");
       setEditingCollabPassEmail(null);
       setNewCollabPass('');
     } catch (err: any) {
@@ -540,6 +545,13 @@ export default function PostNews() {
             <p className="text-xs text-gray-500 font-bold uppercase tracking-wider mb-6">
               Mantenha seu portal protegido alterando a senha master sempre que necessário.
             </p>
+
+            {passwordSuccessMessage && (
+              <div className="bg-emerald-50 text-emerald-800 p-4 rounded-xl mb-6 font-black text-sm border-2 border-emerald-300 flex items-center gap-3 animate-in fade-in">
+                <CheckCircle2 size={20} className="text-emerald-600 shrink-0" />
+                <span>{passwordSuccessMessage}</span>
+              </div>
+            )}
 
             <form onSubmit={handleChangeMasterPassword} className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
               <div>
