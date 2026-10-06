@@ -1,0 +1,72 @@
+[
+  {
+    "id": "noticia-1",
+    "title": "Nova Praça é inaugurada no centro de Marília com Wi-Fi e área de convivência",
+    "summary": "Prefeitura entrega revitalização de espaço público com modernos equipamentos de lazer e iluminação LED para a população.",
+    "content": "<p>A Prefeitura de Marília inaugurou na manhã desta terça-feira a nova Praça do Centro. O espaço conta com novos bancos, iluminação em LED e uma moderna estação de exercícios ao ar livre.</p><p>Segundo o prefeito, a obra faz parte de um plano de revitalização do centro comercial. <em>\"Queremos que as pessoas voltem a ocupar os espaços públicos com segurança e conforto\"</em>, afirmou durante a cerimônia que reuniu lideranças comunitárias e comerciantes locais.</p><p>Moradores e trabalhadores da região que passaram pelo local aprovaram as novas instalações. <strong>\"Ficou muito mais bonito e seguro para trazer as crianças nos finais de semana\"</strong>, comemorou uma moradora local.</p>",
+    "category": "CIDADE",
+    "imageUrl": "https://images.unsplash.com/photo-1519331379826-f10be5486c6f?q=80&w=1000&auto=format&fit=crop",
+    "imageCaption": "Foto: Divulgação / Prefeitura Municipal de Marília",
+    "authorSignature": "Por Redação MaríliaJá",
+    "authorId": "admin",
+    "isFeatured": true,
+    "createdAt": "2026-05-12T10:00:00.000Z",
+    "updatedAt": "2026-05-12T10:00:00.000Z"
+  },
+  {
+    "id": "noticia-2",
+    "title": "Operação Policial na região de Marília e Pompeia desarticula grupo criminoso",
+    "summary": "Polícia Civil cumpriu 15 mandados de busca e apreensão na manhã de hoje após investigação de seis meses.",
+    "content": "<p>Uma grande operação deflagrada pela Polícia Civil na região de Marília e Pompeia resultou na apreensão de veículos, equipamentos eletrônicos e grande quantidade de material ilícito.</p><p>A investigação apurava crimes contra o patrimônio e lavagem de dinheiro. De acordo com os delegados responsáveis, a ação coordenada contou com mais de 40 policiais civis e apoio de viaturas especializadas.</p><p>Os investigados foram conduzidos à Central de Polícia Judiciária (CPJ) de Marília para prestar depoimento e permanecem à disposição da Justiça.</p>",
+    "category": "POLÍCIA",
+    "imageUrl": "https://images.unsplash.com/photo-1589829545856-d10d557cf95f?q=80&w=1000&auto=format&fit=crop",
+    "imageCaption": "Foto: Polícia Civil / Divulgação",
+    "authorSignature": "Por Redação de Polícia",
+    "authorId": "admin",
+    "isFeatured": false,
+    "createdAt": "2026-05-12T09:30:00.000Z",
+    "updatedAt": "2026-05-12T09:30:00.000Z"
+  },
+  {
+    "id": "noticia-3",
+    "title": "Eleições Municipais e Regionais: Câmara e lideranças debatem propostas para o interior",
+    "summary": "Especialistas apontam que investimentos em saúde e inovação tecnológica serão os eixos centrais dos debates no município.",
+    "content": "<p>Com a aproximação das eleições, os pré-candidatos e dirigentes partidários em Marília intensificam reuniões para a formatação de planos de governo focados no desenvolvimento regional.</p><p>Entre os tópicos prioritários destacados pelos debatedores estão a modernização da infraestrutura urbana, a atração de novas indústrias para os distritos industriais e melhorias contínuas nos postos de saúde de atenção básica.</p>",
+    "category": "POLÍTICA",
+    "imageUrl": "https://images.unsplash.com/photo-1540910419892-f0c74b0fa07b?q=80&w=1000&auto=format&fit=crop",
+    "imageCaption": "Foto: Plenário / Divulgação",
+    "authorSignature": "Por Redação Política",
+    "authorId": "admin",
+    "isFeatured": false,
+    "createdAt": "2026-05-12T08:45:00.000Z",
+    "updatedAt": "2026-05-12T08:45:00.000Z"
+  },
+  {
+    "id": "noticia-4",
+    "title": "Festival Gastronômico reúne dezenas de chefs e produtores locais no final de semana",
+    "summary": "Evento no pavilhão de exposições conta com pratos típicos da culinária paulista, apresentações culturais e artesanato.",
+    "content": "<p>O Festival Gastronômico de Marília promete movimentar o setor de turismo e hotelaria no próximo final de semana. O evento reunirá mais de 30 expositores com cardápios que valorizam a produção agrícola e gastronômica do centro-oeste paulista.</p><p>Além da praça de alimentação com opções doces e salgadas, o festival terá espaço kids e apresentações musicais com artistas locais ao longo de todo o dia com entrada gratuita.</p>",
+    "category": "VARIEDADES",
+    "imageUrl": "https://images.unsplash.com/photo-1555939594-58d7cb561ad1?q=80&w=1000&auto=format&fit=crop",
+    "imageCaption": "Foto: Assessoria / Eventos",
+    "authorSignature": "Por Equipe de Cultura",
+    "authorId": "admin",
+    "isFeatured": false,
+    "createdAt": "2026-05-12T08:00:00.000Z",
+    "updatedAt": "2026-05-12T08:00:00.000Z"
+  },
+  {
+    "id": "noticia-5",
+    "title": "Obras na rodovia SP-294 avançam com nova passarela e duplicação de trecho",
+    "summary": "Concessionária conclui etapas cruciais na ligação entre Marília e Pompeia trazendo maior fluidez e segurança aos motoristas.",
+    "content": "<p>Os motoristas que trafegam diariamente pela Rodovia Comandante João Ribeiro de Barros (SP-294) já percebem os reflexos das obras de modernização e ampliação de capacidade.</p><p>Com mais de 85% do cronograma executado, as frentes de trabalho concentram-se agora na sinalização horizontal e instalação de dispositivos de drenagem para entrega completa do trecho.</p>",
+    "category": "REGIÃO",
+    "imageUrl": "https://images.unsplash.com/photo-1515163842474-b36fc8676239?q=80&w=1000&auto=format&fit=crop",
+    "imageCaption": "Foto: Concessionária / Divulgação",
+    "authorSignature": "Por Redação Regional",
+    "authorId": "admin",
+    "isFeatured": false,
+    "createdAt": "2026-05-12T07:15:00.000Z",
+    "updatedAt": "2026-05-12T07:15:00.000Z"
+  }
+]

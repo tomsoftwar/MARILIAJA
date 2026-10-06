@@ -1,0 +1,107 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helpers
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        request.auth.token.email == 'tomsoftwar@gmail.com' ||
+        request.auth.token.email == 'mendsassessoria@gmail.com' ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')
+      );
+    }
+
+    function isEditorOrAdmin() {
+      return isAdmin() || (
+        isSignedIn() && (
+          (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+           get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'editor') ||
+          (request.auth.token.email != null && exists(/databases/$(database)/documents/collaborators/$(request.auth.token.email)))
+        )
+      );
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // 1. News Rules
+    match /news/{newsId} {
+      allow read: if true;
+
+      function isValidNews(data) {
+        return data.title is string && data.title.size() > 0 &&
+               data.summary is string &&
+               data.content is string &&
+               data.category in ['POLÍCIA', 'POLÍTICA', 'CIDADE', 'VARIEDADES', 'REGIÃO'] &&
+               data.imageUrl is string &&
+               data.authorId is string &&
+               data.isFeatured is bool &&
+               (!('imageCaption' in data) || data.imageCaption is string) &&
+               (!('authorSignature' in data) || data.authorSignature is string) &&
+               (!('adTop' in data) || data.adTop is string) &&
+               (!('adMiddle' in data) || data.adMiddle is string) &&
+               (!('adSide' in data) || data.adSide is string) &&
+               (!('adBottom' in data) || data.adBottom is string);
+      }
+
+      allow create: if isEditorOrAdmin() && 
+                    isValidNews(request.resource.data) &&
+                    request.resource.data.authorId == request.auth.uid &&
+                    request.resource.data.createdAt == request.time;
+      
+      allow update: if (isAdmin() || (isEditorOrAdmin() && resource.data.authorId == request.auth.uid)) && 
+                    isValidNews(request.resource.data) &&
+                    request.resource.data.updatedAt == request.time;
+      
+      allow delete: if isAdmin() || (isEditorOrAdmin() && resource.data.authorId == request.auth.uid);
+    }
+
+    // 2. Contact Messages
+    match /contacts/{contactId} {
+      allow create: if request.resource.data.keys().hasAll(['name', 'email', 'message', 'createdAt']) &&
+                    request.resource.data.name is string &&
+                    request.resource.data.email is string &&
+                    request.resource.data.message is string &&
+                    request.resource.data.createdAt == request.time;
+      allow read, delete: if isAdmin();
+    }
+
+    // 3. User Profiles
+    match /users/{userId} {
+      allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+      
+      function isValidUser(data) {
+        return data.displayName is string && data.displayName.size() <= 100 &&
+               data.email is string && data.email.size() <= 100;
+      }
+
+      allow create: if isSignedIn() && request.auth.uid == userId && isValidUser(request.resource.data) && (
+        request.auth.token.email == 'tomsoftwar@gmail.com' ||
+        request.auth.token.email == 'mendsassessoria@gmail.com' ||
+        (request.auth.token.email != null && exists(/databases/$(database)/documents/collaborators/$(request.auth.token.email)))
+      );
+      
+      allow update: if isAdmin();
+      allow delete: if isAdmin() && request.auth.uid != userId;
+    }
+
+    // 4. Collaborators (Pre-authorized users managed by Admin)
+    match /collaborators/{collaboratorEmail} {
+      allow read: if isSignedIn() && (request.auth.token.email == collaboratorEmail || isAdmin());
+      allow create, update: if isAdmin() && 
+                            request.resource.data.email is string && 
+                            request.resource.data.role in ['editor', 'admin'];
+      allow delete: if isAdmin();
+    }
+  }
+}

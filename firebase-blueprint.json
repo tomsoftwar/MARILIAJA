@@ -1,0 +1,77 @@
+{
+  "entities": {
+    "News": {
+      "title": "News Article",
+      "description": "A news article posted on the portal",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string", "description": "The title of the news" },
+        "summary": { "type": "string", "description": "A brief summary of the news" },
+        "content": { "type": "string", "description": "The full content in HTML (Rich Text)" },
+        "category": { "type": "string", "description": "POLÍCIA, POLÍTICA, CIDADE, VARIEDADES, или REGIÃO" },
+        "imageUrl": { "type": "string", "description": "Main image URL" },
+        "imageCaption": { "type": "string", "description": "Caption for the main image" },
+        "authorSignature": { "type": "string", "description": "Signature of the author" },
+        "adTop": { "type": "string", "description": "Ad HTML or Image URL for the top" },
+        "adMiddle": { "type": "string", "description": "Ad HTML or Image URL for the middle" },
+        "adSide": { "type": "string", "description": "Ad HTML or Image URL for the side" },
+        "adBottom": { "type": "string", "description": "Ad HTML or Image URL for the footer" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "isFeatured": { "type": "boolean" },
+        "authorId": { "type": "string" }
+      },
+      "required": ["title", "content", "category", "imageUrl", "createdAt"]
+    },
+    "Contact": {
+      "title": "Contact Message",
+      "description": "Message sent from the contact form",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "subject": { "type": "string" },
+        "message": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "email", "message", "createdAt"]
+    },
+    "User": {
+      "title": "Portal User",
+      "description": "User profile with roles",
+      "type": "object",
+      "properties": {
+        "displayName": { "type": "string" },
+        "email": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "editor"] }
+      }
+    },
+    "Collaborator": {
+      "title": "Collaborator / Editor",
+      "description": "Authorized collaborator allowed to post news",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string" },
+        "name": { "type": "string" },
+        "role": { "type": "string", "enum": ["editor", "admin"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "addedBy": { "type": "string" }
+      },
+      "required": ["email", "role"]
+    }
+  },
+  "firestore": {
+    "/news/{newsId}": {
+      "schema": "News",
+      "description": "Collection of all news articles"
+    },
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profiles"
+    },
+    "/collaborators/{collaboratorEmail}": {
+      "schema": "Collaborator",
+      "description": "Pre-authorized collaborator list"
+    }
+  }
+}

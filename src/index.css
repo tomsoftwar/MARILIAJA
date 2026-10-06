@@ -1,0 +1,26 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&family=Archivo+Black&display=swap');
+@import "tailwindcss";
+@plugin "@tailwindcss/typography";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-heading: "Archivo Black", sans-serif;
+}
+
+@layer base {
+  body {
+    @apply bg-white text-black antialiased;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-heading tracking-tighter uppercase leading-none;
+  }
+}
+
+/* Custom Editorial focus utilities */
+.editorial-border-top {
+  @apply border-t-4 border-black pt-2;
+}
+
+.category-tag {
+  @apply bg-black text-white text-[10px] font-bold py-1 px-2 w-max uppercase mb-2;
+}
