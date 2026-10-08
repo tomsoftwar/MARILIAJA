@@ -65,7 +65,7 @@ export default function Menu() {
                   )}
                 >
                   <PlusCircle size={14} />
-                  POSTAR NOTÍCIA
+                  MARÍLIA JÁ
                 </Link>
                 <button
                   onClick={() => authService.signOut()}
