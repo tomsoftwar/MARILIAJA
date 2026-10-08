@@ -78,7 +78,7 @@ export default function Contato() {
               </div>
               <div>
                 <h3 className="font-black uppercase tracking-widest text-xs mb-1 text-gray-400">WhatsApp</h3>
-                <p className="text-xl font-black">(14) 99999-9999</p>
+                <p className="text-xl font-black">(14) 99866-7646</p>
               </div>
             </div>
 
@@ -106,7 +106,7 @@ export default function Contato() {
               <CheckCircle2 size={64} className="text-green-600 mx-auto mb-6" />
               <h2 className="text-3xl font-black uppercase tracking-tighter mb-4 text-green-900">Mensagem Enviada!</h2>
               <p className="text-green-800 font-bold mb-8">
-                Agradecemos seu contato. Sua mensagem foi direcionada para sitemariliaja@gmail.com e responderemos o mais breve possível.
+                Agradecemos seu contato. Sua mensagem foi enviada e responderemos o mais breve possível. Obrigado!
               </p>
               <button 
                 onClick={() => setSubmitted(false)}
@@ -141,7 +141,7 @@ export default function Contato() {
                   <input 
                     type="email" 
                     required
-                    placeholder="PARA ONDE RESPONDEMOS?"
+                    placeholder="SEU E-MAIL?"
                     className="w-full border-4 border-gray-100 p-5 focus:border-[#FF0000] outline-none font-black text-lg transition-all rounded-2xl"
                     value={formData.email}
                     onChange={e => setFormData({ ...formData, email: e.target.value })}
@@ -152,7 +152,7 @@ export default function Contato() {
                   <input 
                     type="text" 
                     required
-                    placeholder="QUAL O MOTIVO?"
+                    placeholder="QUAL O MOTIVO DO CONTATO?"
                     className="w-full border-4 border-gray-100 p-5 focus:border-[#FF0000] outline-none font-black text-lg transition-all rounded-2xl"
                     value={formData.subject}
                     onChange={e => setFormData({ ...formData, subject: e.target.value })}
