@@ -10,7 +10,7 @@ const GITHUB_SETTINGS_KEY = 'mj_github_settings';
 const MASTER_PASSWORD_KEY = 'mj_admin_master_password';
 
 // Initial default master password for tomsoftwar / admin
-const DEFAULT_MASTER_PASSWORD = 'mariliaja@2026';
+const DEFAULT_MASTER_PASSWORD = 'Re970838$';
 
 type AuthListener = (user: AuthUser | null) => void;
 const authListeners: Set<AuthListener> = new Set();
