@@ -1,0 +1,40 @@
+import { YouTubeVideo } from '../types';
+
+export const INITIAL_VIDEOS: YouTubeVideo[] = [
+  {
+    id: "video-1",
+    title: "Imagens Aéreas em Alta Resolução de Marília e Região Central",
+    description: "Confira o sobrevoo da cidade de Marília destacando os principais pontos turísticos, avenidas e o Bosque Municipal.",
+    youtubeUrl: "https://www.youtube.com/watch?v=1La4QzGeaaQ",
+    youtubeId: "1La4QzGeaaQ",
+    publishedAt: "2026-05-12T10:00:00.000Z",
+    isFeatured: true
+  },
+  {
+    id: "video-2",
+    title: "Reportagem Especial: Obras de Mobilidade e Expansão na SP-294",
+    description: "Cobertura completa sobre as melhorias na rodovia entre Marília, Pompeia e Oriente.",
+    youtubeUrl: "https://www.youtube.com/watch?v=kJQP7kiw5Fk",
+    youtubeId: "kJQP7kiw5Fk",
+    publishedAt: "2026-05-11T16:30:00.000Z",
+    isFeatured: false
+  },
+  {
+    id: "video-3",
+    title: "Festival Cultural e Gastronômico movimenta o Centro de Marília",
+    description: "Veja os melhores momentos do festival que reuniu produtores locais, apresentações musicais e gastronomia típica.",
+    youtubeUrl: "https://www.youtube.com/watch?v=fJ9rUzIMcZQ",
+    youtubeId: "fJ9rUzIMcZQ",
+    publishedAt: "2026-05-10T14:15:00.000Z",
+    isFeatured: false
+  },
+  {
+    id: "video-4",
+    title: "Entrevista Exclusiva com Especialistas sobre Saúde e Inovação",
+    description: "Debate sobre os novos investimentos em hospitais e tecnologia médica para o interior paulista.",
+    youtubeUrl: "https://www.youtube.com/watch?v=L_LUpnjgPso",
+    youtubeId: "L_LUpnjgPso",
+    publishedAt: "2026-05-09T11:00:00.000Z",
+    isFeatured: false
+  }
+];

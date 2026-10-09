@@ -1,11 +1,13 @@
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '../../lib/utils';
-import { Menu as MenuIcon, X, PlusCircle } from 'lucide-react';
+import { Menu as MenuIcon, X, PlusCircle, RefreshCw } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { authService, AuthUser } from '../../lib/authService';
+import { newsService } from '../../lib/newsService';
 
 const MENU_ITEMS = [
   { label: 'HOME', path: '/' },
+  { label: 'TV MARÍLIA JÁ', path: '/#tv-marilia' },
   { label: 'QUEM SOMOS', path: '/quem-somos' },
   { label: 'POLÍTICAS DE PRIVACIDADE', path: '/politica-privacidade' },
   { label: 'TERMOS DE USO', path: '/termos-uso' },
@@ -16,6 +18,7 @@ const MENU_ITEMS = [
 export default function Menu() {
   const [isOpen, setIsOpen] = useState(false);
   const [user, setUser] = useState<AuthUser | null>(null);
+  const [syncing, setSyncing] = useState(false);
   const location = useLocation();
 
   useEffect(() => {
@@ -24,6 +27,17 @@ export default function Menu() {
     });
     return () => unsubscribe();
   }, []);
+
+  const handleSync = async () => {
+    setSyncing(true);
+    try {
+      await newsService.refreshFromServer();
+    } catch {
+      // quiet
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   const isAuthorized = user && (user.role === 'admin' || user.role === 'editor');
 
@@ -56,7 +70,17 @@ export default function Menu() {
             ))}
             
             {user && isAuthorized ? (
-              <div className="flex items-center gap-4 shrink-0">
+              <div className="flex items-center gap-3 shrink-0">
+                <button
+                  type="button"
+                  onClick={handleSync}
+                  disabled={syncing}
+                  className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1 rounded text-[10px] font-black uppercase transition-colors shrink-0 shadow-md cursor-pointer"
+                  title="Sincronizar notícias entre celular e computador"
+                >
+                  <RefreshCw size={12} className={syncing ? 'animate-spin' : ''} />
+                  {syncing ? 'Sincronizando...' : 'Sincronizar Celular'}
+                </button>
                 <Link
                   to="/postar"
                   className={cn(
@@ -65,7 +89,7 @@ export default function Menu() {
                   )}
                 >
                   <PlusCircle size={14} />
-                  MARÍLIA JÁ
+                  POSTAR NOTÍCIA
                 </Link>
                 <button
                   onClick={() => authService.signOut()}
@@ -104,6 +128,18 @@ export default function Menu() {
             ))}
             {user && isAuthorized ? (
               <>
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleSync();
+                    setIsOpen(false);
+                  }}
+                  disabled={syncing}
+                  className="bg-emerald-600 text-white font-black text-sm px-4 py-3 rounded-xl flex items-center justify-center gap-2 uppercase tracking-wider"
+                >
+                  <RefreshCw size={16} className={syncing ? 'animate-spin' : ''} />
+                  {syncing ? 'Sincronizando...' : 'Sincronizar Celular / Servidor'}
+                </button>
                 <Link
                   to="/postar"
                   className="text-[#FF0000] font-black text-lg flex items-center gap-2"

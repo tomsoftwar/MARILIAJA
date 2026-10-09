@@ -25,6 +25,16 @@ export interface NewsArticle {
   authorId: string;
 }
 
+export interface YouTubeVideo {
+  id: string;
+  title: string;
+  description?: string;
+  youtubeUrl: string;
+  youtubeId: string;
+  publishedAt?: string;
+  isFeatured?: boolean;
+}
+
 export interface UserProfile {
   uid: string;
   displayName: string;

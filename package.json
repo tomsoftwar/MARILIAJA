@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx server.ts",
-    "build": "vite build",
+    "build": "vite build && cp dist/index.html dist/404.html",
     "preview": "vite preview",
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit"
@@ -27,7 +27,6 @@
     "react": "^19.0.1",
     "react-dom": "^19.0.1",
     "react-markdown": "^10.1.0",
-    "react-quill": "^2.0.0",
     "react-quill-new": "^3.8.3",
     "react-router-dom": "^7.15.0",
     "tailwind-merge": "^3.6.0",

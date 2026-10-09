@@ -2,12 +2,12 @@ import { Link } from 'react-router-dom';
 
 export default function Footer() {
   return (
-    <footer className="bg-black text-white py-12 mt-12" id="main-footer">
-      <div className="container mx-auto px-4 max-w-7xl">
-        <div className="flex flex-col md:flex-row justify-between items-end border-b border-gray-800 pb-6 mb-6 gap-8">
+    <footer className="bg-black text-white py-12 mt-12 w-full max-w-full overflow-hidden box-border" id="main-footer">
+      <div className="container mx-auto px-4 max-w-7xl w-full">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-end border-b border-gray-800 pb-6 mb-6 gap-6">
           <div className="text-left">
-            <h2 className="text-3xl font-black text-[#FF0000] tracking-tighter mb-1 uppercase">MARÍLIAJÁ</h2>
-            <p className="text-[10px] text-gray-500 uppercase font-bold tracking-widest">
+            <h2 className="text-2xl sm:text-3xl font-black text-[#FF0000] tracking-tighter mb-1 uppercase">MARÍLIAJÁ</h2>
+            <p className="text-[10px] text-gray-500 uppercase font-bold tracking-widest break-words">
               O mais completo portal de notícias online para anunciar sua marca.
             </p>
           </div>
@@ -43,9 +43,9 @@ export default function Footer() {
           </div>
         </div>
 
-        <div className="flex flex-col md:flex-row justify-between items-center text-[10px] text-gray-600 uppercase tracking-[0.2em] font-bold pt-8 border-t border-gray-900 gap-4">
+        <div className="flex flex-col md:flex-row justify-between items-center text-[10px] text-gray-600 uppercase tracking-wider sm:tracking-[0.2em] font-bold pt-8 border-t border-gray-900 gap-4 text-center md:text-left">
           <p>Desenvolvido pela <span className="text-white">TOMSOFT</span> - @2026</p>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4 flex-wrap justify-center">
             <p>MARÍLIAJÁ - 2014-2026</p>
             <span className="w-1 h-1 bg-gray-800 rounded-full"></span>
             <Link to="/login" className="hover:text-white underline">Área Restrita</Link>

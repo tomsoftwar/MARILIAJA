@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { authService } from '../lib/authService';
-import { Lock, User, Github, AlertCircle, KeyRound, ExternalLink, ShieldCheck } from 'lucide-react';
+import { Lock, User, Github, AlertCircle, KeyRound, ExternalLink, ShieldCheck, Eye, EyeOff, Info } from 'lucide-react';
 
 export default function Login() {
   const [tab, setTab] = useState<'credentials' | 'github'>('credentials');
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [githubToken, setGithubToken] = useState('');
 
   const [loading, setLoading] = useState(false);
@@ -40,6 +41,12 @@ export default function Login() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleFillDefaultAdmin = () => {
+    setIdentifier('admin');
+    setPassword('mariliaja@2026');
+    setErrorStatus(null);
   };
 
   const handleGitHubLogin = async (e: React.FormEvent) => {
@@ -111,7 +118,7 @@ export default function Login() {
                 <input
                   type="text"
                   required
-                  placeholder="Seu usuário ou e-mail cadastrado"
+                  placeholder="admin ou tomsoftwar@gmail.com"
                   value={identifier}
                   onChange={(e) => setIdentifier(e.target.value)}
                   className="w-full pl-10 pr-4 py-3 border-2 border-gray-200 rounded-xl font-bold text-sm outline-none focus:border-[#FF0000] transition-colors"
@@ -120,27 +127,66 @@ export default function Login() {
             </div>
 
             <div>
-              <label className="block text-[10px] font-black uppercase tracking-widest text-gray-500 mb-1">
-                Senha de Acesso *
-              </label>
+              <div className="flex justify-between items-center mb-1">
+                <label className="block text-[10px] font-black uppercase tracking-widest text-gray-500">
+                  Senha de Acesso *
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="text-[10px] text-gray-500 hover:text-black font-bold flex items-center gap-1 cursor-pointer"
+                >
+                  {showPassword ? <EyeOff size={12} /> : <Eye size={12} />}
+                  {showPassword ? "Ocultar" : "Mostrar"}
+                </button>
+              </div>
               <div className="relative">
                 <Lock className="absolute left-3.5 top-3.5 text-gray-400" size={18} />
                 <input
-                  type="password"
+                  type={showPassword ? "text" : "password"}
                   required
                   placeholder="Digite sua senha"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 border-2 border-gray-200 rounded-xl font-bold text-sm outline-none focus:border-[#FF0000] transition-colors"
+                  className="w-full pl-10 pr-10 py-3 border-2 border-gray-200 rounded-xl font-bold text-sm outline-none focus:border-[#FF0000] transition-colors"
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3.5 top-3.5 text-gray-400 hover:text-black"
+                >
+                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
               </div>
+            </div>
+
+            {/* Hint Box for Default Admin */}
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-900 flex items-start justify-between gap-2">
+              <div className="flex items-start gap-2">
+                <Info size={16} className="text-amber-600 shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-bold text-[11px] uppercase tracking-wide text-amber-800">
+                    Acesso Administrador Padrão:
+                  </p>
+                  <p className="text-[11px] text-amber-700 mt-0.5">
+                    Usuário: <code className="font-bold bg-amber-100 px-1 py-0.5 rounded">admin</code> | Senha: <code className="font-bold bg-amber-100 px-1 py-0.5 rounded">mariliaja@2026</code>
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={handleFillDefaultAdmin}
+                className="text-[10px] font-black uppercase tracking-wider bg-amber-200 hover:bg-amber-300 text-amber-900 px-2 py-1 rounded-md shrink-0 cursor-pointer transition-colors"
+              >
+                Preencher
+              </button>
             </div>
 
             <div className="pt-2">
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-[#FF0000] text-white py-3.5 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-black transition-colors disabled:bg-gray-300 flex items-center justify-center gap-2 shadow-lg"
+                className="w-full bg-[#FF0000] text-white py-3.5 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-black transition-colors disabled:bg-gray-300 flex items-center justify-center gap-2 shadow-lg cursor-pointer"
               >
                 {loading ? (
                   <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>

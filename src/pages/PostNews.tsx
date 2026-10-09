@@ -1,12 +1,16 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { NewsCategory, NewsArticle, Collaborator } from '../types';
+import { NewsCategory, NewsArticle, Collaborator, YouTubeVideo } from '../types';
 import { newsService } from '../lib/newsService';
+import { videoService, extractYouTubeId } from '../lib/videoService';
+import { adService, PortalAdsConfig } from '../lib/adService';
 import { authService, AuthUser } from '../lib/authService';
+import { syncEntireProjectToGitHub } from '../lib/projectSyncService';
 import { 
   Trash2, Edit, Plus, LayoutGrid, X, Users, UserPlus, 
   Shield, CheckCircle2, Lock, UserCheck, Download, Github, 
-  RefreshCw, Settings
+  RefreshCw, Settings, KeyRound, AlertCircle, Tv, Video, Play, ExternalLink, Megaphone, Save,
+  AlertTriangle, Wrench, Sparkles, UploadCloud, Check
 } from 'lucide-react';
 
 import ReactQuill from 'react-quill-new';
@@ -29,8 +33,9 @@ export default function PostNews() {
   });
   const [newsList, setNewsList] = useState<NewsArticle[]>([]);
   const [collaboratorsList, setCollaboratorsList] = useState<Collaborator[]>([]);
+  const [videoList, setVideoList] = useState<YouTubeVideo[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [view, setView] = useState<'manage' | 'form' | 'collaborators' | 'github'>('manage');
+  const [view, setView] = useState<'manage' | 'form' | 'collaborators' | 'github' | 'videos' | 'ads'>('manage');
   const [newsFilter, setNewsFilter] = useState<'all' | 'mine'>('all');
   const [loading, setLoading] = useState(false);
   const [errorStatus, setErrorStatus] = useState<string | null>(null);
@@ -38,6 +43,27 @@ export default function PostNews() {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [confirmDeleteCollabEmail, setConfirmDeleteCollabEmail] = useState<string | null>(null);
+  const [confirmDeleteVideoId, setConfirmDeleteVideoId] = useState<string | null>(null);
+
+  // Portal Ads form state
+  const [adsFormData, setAdsFormData] = useState<PortalAdsConfig>({
+    homeTop: '',
+    homeGrid: '',
+    homeBottom: ''
+  });
+
+  // TV Marília Já form state
+  const [videoFormData, setVideoFormData] = useState({
+    title: '',
+    youtubeUrl: '',
+    description: '',
+    isFeatured: false
+  });
+  const [videoLoading, setVideoLoading] = useState(false);
+  const [hasDeletedVideos, setHasDeletedVideos] = useState(false);
+  const [savingAllVideos, setSavingAllVideos] = useState(false);
+  const [hasDeletedNews, setHasDeletedNews] = useState(false);
+  const [savingAllNews, setSavingAllNews] = useState(false);
 
   // Collaborator form state
   const [collabEmail, setCollabEmail] = useState('');
@@ -50,12 +76,22 @@ export default function PostNews() {
   const [currentMasterPass, setCurrentMasterPass] = useState('');
   const [newMasterPass, setNewMasterPass] = useState('');
   const [passwordSuccessMessage, setPasswordSuccessMessage] = useState<string | null>(null);
+  const [showPasswordSuccessModal, setShowPasswordSuccessModal] = useState(false);
+  const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
+  const [userCurrentPass, setUserCurrentPass] = useState('');
+  const [userNewPass, setUserNewPass] = useState('');
+  const [userConfirmPass, setUserConfirmPass] = useState('');
+  const [passModalError, setPassModalError] = useState<string | null>(null);
   const [editingCollabPassEmail, setEditingCollabPassEmail] = useState<string | null>(null);
   const [newCollabPass, setNewCollabPass] = useState('');
 
   // GitHub Sync state
   const [githubSettings, setGithubSettings] = useState(authService.getGitHubSettings());
   const [syncingGit, setSyncingGit] = useState(false);
+  const [syncingServer, setSyncingServer] = useState(false);
+  const [repairingGit, setRepairingGit] = useState(false);
+  const [syncingAllProject, setSyncingAllProject] = useState(false);
+  const [syncProgressMessage, setSyncProgressMessage] = useState<string | null>(null);
 
   const navigate = useNavigate();
 
@@ -77,11 +113,23 @@ export default function PostNews() {
       setNewsList(items);
     });
 
+    // Subscribe to TV Marília Já videos
+    const unsubVideos = videoService.subscribe((vids) => {
+      setVideoList(vids);
+    });
+
+    // Subscribe to Portal Ads
+    const unsubAds = adService.subscribe((ads) => {
+      setAdsFormData(ads);
+    });
+
     // Load collaborators
     setCollaboratorsList(authService.getCollaborators());
 
     return () => {
       unsubNews();
+      unsubVideos();
+      unsubAds();
     };
   }, [navigate]);
 
@@ -140,11 +188,28 @@ export default function PostNews() {
 
       newsService.deleteNews(id, user.uid, isAdmin);
       setConfirmDeleteId(null);
-      setSuccessStatus("Notícia excluída com sucesso.");
+      setHasDeletedNews(true);
+      setSuccessStatus("Notícia excluída da lista! Clique no botão verde 'SALVAR ALTERAÇÕES' para gravar permanentemente no servidor e impedir que retorne.");
     } catch (err: any) {
       setErrorStatus(err.message || "Erro ao excluir notícia.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSaveAllNews = async () => {
+    setSavingAllNews(true);
+    setErrorStatus(null);
+    setSuccessStatus(null);
+    try {
+      const updated = await newsService.saveAllNews(newsList);
+      setNewsList(updated);
+      setHasDeletedNews(false);
+      setSuccessStatus("Sucesso! Lista de notícias gravada com segurança no servidor. As notícias excluídas foram eliminadas permanentemente.");
+    } catch (err: any) {
+      setErrorStatus(err.message || "Erro ao salvar notícias no servidor.");
+    } finally {
+      setSavingAllNews(false);
     }
   };
 
@@ -189,6 +254,7 @@ export default function PostNews() {
       authService.changeMasterPassword(currentMasterPass, newMasterPass);
       setSuccessStatus("SENHA ALTERADA COM SUCESSO!");
       setPasswordSuccessMessage("SENHA ALTERADA COM SUCESSO!");
+      setShowPasswordSuccessModal(true);
       setCurrentMasterPass('');
       setNewMasterPass('');
     } catch (err: any) {
@@ -203,10 +269,33 @@ export default function PostNews() {
       authService.updateCollaboratorPassword(email, newCollabPass);
       setCollaboratorsList(authService.getCollaborators());
       setSuccessStatus("SENHA ALTERADA COM SUCESSO!");
+      setShowPasswordSuccessModal(true);
       setEditingCollabPassEmail(null);
       setNewCollabPass('');
     } catch (err: any) {
       setErrorStatus(err.message || "Erro ao alterar senha do colaborador.");
+    }
+  };
+
+  const handleUserChangePassword = (e: React.FormEvent) => {
+    e.preventDefault();
+    setPassModalError(null);
+
+    if (userNewPass !== userConfirmPass) {
+      setPassModalError("A nova senha e a confirmação não coincidem.");
+      return;
+    }
+
+    try {
+      authService.changeUserPassword(user.email, userCurrentPass, userNewPass);
+      setUserCurrentPass('');
+      setUserNewPass('');
+      setUserConfirmPass('');
+      setShowChangePasswordModal(false);
+      setSuccessStatus("SENHA ALTERADA COM SUCESSO!");
+      setShowPasswordSuccessModal(true);
+    } catch (err: any) {
+      setPassModalError(err.message || "Erro ao alterar a senha.");
     }
   };
 
@@ -228,29 +317,152 @@ export default function PostNews() {
     setSuccessStatus("Configurações do GitHub salvas com sucesso!");
   };
 
+  const handleSyncToServer = async () => {
+    setSyncingServer(true);
+    setErrorStatus(null);
+    setSuccessStatus(null);
+    try {
+      const refreshed = await newsService.refreshFromServer();
+      setNewsList(refreshed);
+      setSuccessStatus(`Sincronização concluída! ${refreshed.length} notícias atualizadas no servidor e disponíveis para todos os celulares e computadores.`);
+    } catch {
+      setErrorStatus("Erro ao sincronizar com o servidor.");
+    } finally {
+      setSyncingServer(false);
+    }
+  };
+
   const handleSyncToGitHub = async () => {
     if (!githubSettings.token) {
-      setErrorStatus("Por favor, informe seu GitHub Token na aba 'GitHub CMS' para sincronizar os commits.");
+      setErrorStatus("Por favor, informe seu GitHub Token no formulário abaixo.");
       setView('github');
       return;
     }
 
     setSyncingGit(true);
+    setSyncProgressMessage("Sincronizando todo o projeto (TV Marília Já, 3 Colunas, ADS, Vídeos e Notícias) com o GitHub...");
     setErrorStatus(null);
     setSuccessStatus(null);
 
-    const result = await newsService.syncWithGitHub({
+    const result = await syncEntireProjectToGitHub({
+      githubToken: githubSettings.token,
+      repo: githubSettings.repo,
+      branch: githubSettings.branch,
+      onProgress: (msg) => setSyncProgressMessage(msg)
+    });
+
+    setSyncingGit(false);
+    setSyncProgressMessage(null);
+    if (result.success) {
+      setSuccessStatus(`Sucesso! Todo o portal (TV Marília Já, 3 Colunas, vídeos e notícias) foi enviado ao GitHub! O GitHub Actions já iniciou o build e seu site estará no ar em 1 minuto.`);
+    } else {
+      setErrorStatus(`Falha na sincronização: ${result.error}`);
+    }
+  };
+
+  const handleRepairGitHubPages = async () => {
+    if (!githubSettings.token) {
+      setErrorStatus("Informe o seu GitHub Personal Access Token (com permissão 'repo') no formulário abaixo para corrigir o GitHub Pages.");
+      return;
+    }
+
+    setRepairingGit(true);
+    setErrorStatus(null);
+    setSuccessStatus(null);
+
+    const result = await newsService.repairGitHubPagesWorkflow({
       githubToken: githubSettings.token,
       repo: githubSettings.repo,
       branch: githubSettings.branch
     });
 
-    setSyncingGit(false);
+    setRepairingGit(false);
     if (result.success) {
-      setSuccessStatus(`Notícias sincronizadas com o GitHub com sucesso! O GitHub Pages atualizará o site automaticamente.`);
+      setSuccessStatus(result.message || "Configurações do GitHub Pages reparadas com sucesso! Em 1 a 2 minutos o site estará online sem tela branca.");
     } else {
-      setErrorStatus(`Falha na sincronização: ${result.error}`);
+      setErrorStatus(`Falha na reparação: ${result.error}`);
     }
+  };
+
+  const handleSyncEntireProject = async () => {
+    if (!githubSettings.token) {
+      setErrorStatus("Informe o seu GitHub Personal Access Token (com permissão 'repo') no formulário abaixo.");
+      return;
+    }
+
+    setSyncingAllProject(true);
+    setSyncProgressMessage("Iniciando comunicação com o GitHub...");
+    setErrorStatus(null);
+    setSuccessStatus(null);
+
+    const result = await syncEntireProjectToGitHub({
+      githubToken: githubSettings.token,
+      repo: githubSettings.repo,
+      branch: githubSettings.branch,
+      onProgress: (msg) => setSyncProgressMessage(msg)
+    });
+
+    setSyncingAllProject(false);
+    setSyncProgressMessage(null);
+    if (result.success) {
+      setSuccessStatus(result.message || "Projeto sincronizado com sucesso com o GitHub!");
+    } else {
+      setErrorStatus(`Falha na sincronização completa: ${result.error}`);
+    }
+  };
+
+  const handleSaveVideo = (e: React.FormEvent) => {
+    e.preventDefault();
+    setVideoLoading(true);
+    setErrorStatus(null);
+    setSuccessStatus(null);
+    try {
+      videoService.saveVideo(videoFormData);
+      setSuccessStatus("Vídeo publicado com sucesso na TV Marília Já!");
+      setVideoFormData({
+        title: '',
+        youtubeUrl: '',
+        description: '',
+        isFeatured: false
+      });
+    } catch (err: any) {
+      setErrorStatus(err.message || "Erro ao adicionar vídeo do YouTube.");
+    } finally {
+      setVideoLoading(false);
+    }
+  };
+
+  const handleDeleteVideo = (id: string) => {
+    try {
+      videoService.deleteVideo(id);
+      setConfirmDeleteVideoId(null);
+      setHasDeletedVideos(true);
+      setSuccessStatus("Vídeo excluído da lista! Clique no botão verde 'SALVAR ALTERAÇÕES' para confirmar a gravação permanente no servidor.");
+    } catch (err: any) {
+      setErrorStatus(err.message || "Erro ao remover vídeo.");
+    }
+  };
+
+  const handleSaveAllVideos = async () => {
+    setSavingAllVideos(true);
+    setErrorStatus(null);
+    setSuccessStatus(null);
+    try {
+      const updated = await videoService.saveAllVideos(videoList);
+      setVideoList(updated);
+      setHasDeletedVideos(false);
+      setSuccessStatus("Sucesso! Lista de vídeos gravada com segurança no servidor. Os vídeos excluídos foram eliminados permanentemente.");
+    } catch (err: any) {
+      setErrorStatus(err.message || "Erro ao salvar vídeos no servidor.");
+    } finally {
+      setSavingAllVideos(false);
+    }
+  };
+
+  const handleSaveAds = (e: React.FormEvent) => {
+    e.preventDefault();
+    adService.saveAds(adsFormData);
+    setSuccessStatus("Banners publicitários da página inicial salvos com sucesso!");
   };
 
   const resetForm = () => {
@@ -278,7 +490,7 @@ export default function PostNews() {
   const myPostsCount = newsList.filter(n => n.authorId === user.uid).length;
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-6xl">
+    <div className="container mx-auto px-3 sm:px-4 py-6 sm:py-8 max-w-6xl w-full max-w-full overflow-hidden box-border">
       {/* Header bar */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8 border-b-8 border-black pb-6">
         <div>
@@ -291,6 +503,30 @@ export default function PostNews() {
             <span className="text-[10px] font-black uppercase tracking-[0.2em] bg-red-100 text-[#FF0000] px-2 py-0.5 rounded">
               {isAdmin ? 'Administrador' : 'Colaborador'}
             </span>
+            <button
+              type="button"
+              onClick={() => {
+                setPassModalError(null);
+                setUserCurrentPass('');
+                setUserNewPass('');
+                setUserConfirmPass('');
+                setShowChangePasswordModal(true);
+              }}
+              className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider bg-black text-white hover:bg-[#FF0000] px-3 py-1 rounded-lg transition-colors cursor-pointer shadow-xs"
+              title="Alterar minha senha de acesso"
+            >
+              <KeyRound size={12} /> Alterar Senha
+            </button>
+            <button
+              type="button"
+              onClick={handleSyncToServer}
+              disabled={syncingServer}
+              className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider bg-emerald-600 text-white hover:bg-emerald-700 px-3 py-1 rounded-lg transition-colors cursor-pointer shadow-xs"
+              title="Sincronizar notícias com o servidor (celular e computadores)"
+            >
+              <RefreshCw size={12} className={syncingServer ? 'animate-spin' : ''} />
+              {syncingServer ? 'Sincronizando...' : 'Sincronizar Celular / Servidor'}
+            </button>
           </div>
         </div>
 
@@ -307,6 +543,18 @@ export default function PostNews() {
             className={`px-5 py-2.5 rounded-lg font-black text-xs uppercase tracking-widest transition-all flex items-center gap-2 ${view === 'form' ? 'bg-[#FF0000] text-white shadow-lg' : 'text-gray-500 hover:text-black'}`}
           >
             <Plus size={16} /> Nova Notícia
+          </button>
+          <button 
+            onClick={() => { setView('videos'); resetForm(); }}
+            className={`px-5 py-2.5 rounded-lg font-black text-xs uppercase tracking-widest transition-all flex items-center gap-2 ${view === 'videos' ? 'bg-[#FF0000] text-white shadow-lg' : 'text-gray-500 hover:text-black'}`}
+          >
+            <Tv size={16} /> TV MaríliaJá ({videoList.length})
+          </button>
+          <button 
+            onClick={() => { setView('ads'); resetForm(); }}
+            className={`px-5 py-2.5 rounded-lg font-black text-xs uppercase tracking-widest transition-all flex items-center gap-2 ${view === 'ads' ? 'bg-[#FF0000] text-white shadow-lg' : 'text-gray-500 hover:text-black'}`}
+          >
+            <Megaphone size={16} /> Banners / ADS
           </button>
           {isAdmin && (
             <>
@@ -325,6 +573,32 @@ export default function PostNews() {
             </>
           )}
         </div>
+      </div>
+
+      {/* Top Sync & Status Bar (Always Visible in all views) */}
+      <div className="bg-emerald-50 border-2 border-emerald-300 p-4 rounded-2xl mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
+        <div className="flex items-center gap-3">
+          <div className="w-3.5 h-3.5 bg-emerald-500 rounded-full animate-pulse shrink-0" />
+          <div>
+            <p className="text-xs font-black uppercase text-emerald-900 tracking-wider flex items-center gap-2">
+              Sincronização Celular e Computador
+              <span className="bg-emerald-200 text-emerald-800 text-[9px] px-2 py-0.5 rounded-full font-bold">ONLINE</span>
+            </p>
+            <p className="text-[11px] text-emerald-700 font-bold mt-0.5">
+              {newsList.length} notícias sincronizadas no servidor central, visíveis em qualquer celular ou computador.
+            </p>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={handleSyncToServer}
+          disabled={syncingServer}
+          className="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-3 rounded-xl font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all shadow-md active:scale-95 cursor-pointer shrink-0"
+        >
+          <RefreshCw size={15} className={syncingServer ? 'animate-spin' : ''} />
+          {syncingServer ? 'Sincronizando...' : 'Sincronizar Celular / Servidor'}
+        </button>
       </div>
       
       {/* Feedback alerts */}
@@ -356,6 +630,119 @@ export default function PostNews() {
                 <p className="text-xs text-gray-500 font-bold uppercase tracking-wider">
                   Publique o catálogo de notícias diretamente no seu repositório do GitHub Pages.
                 </p>
+              </div>
+            </div>
+
+            {/* DIAGNOSTIC & AUTO REPAIR FOR WHITE SCREEN */}
+            <div className="bg-red-50 border-4 border-red-500 p-6 rounded-2xl mb-8 shadow-sm">
+              <div className="flex items-start gap-4">
+                <div className="p-3 bg-red-600 text-white rounded-xl shrink-0 mt-1">
+                  <AlertTriangle size={24} />
+                </div>
+                <div className="space-y-3 flex-1">
+                  <div>
+                    <h3 className="text-lg font-black uppercase text-red-900 tracking-tight flex items-center gap-2">
+                      Diagnóstico: Por que o GitHub Pages está com Tela Branca?
+                    </h3>
+                    <p className="text-xs text-red-800 font-bold mt-1 leading-relaxed">
+                      O GitHub Pages foi configurado no GitHub com um fluxo estático (arquivo <code>static.yml</code> enviando a raiz do repositório). Em projetos React + Vite, o navegador não consegue abrir arquivos TypeScript (<code>.tsx</code>) brutos sem compilação, resultando em tela totalmente branca.
+                    </p>
+                  </div>
+
+                  <div className="bg-white/80 p-4 rounded-xl border border-red-200 text-xs text-red-950 font-medium space-y-2">
+                    <p className="font-bold text-red-900 uppercase tracking-wide">
+                      A Solução Definitiva em 2 Passos:
+                    </p>
+                    <ol className="list-decimal list-inside space-y-1 pl-1">
+                      <li>
+                        <strong>Passo 1 (Automático pelo botão abaixo):</strong> Criar o workflow do Vite (<code>.github/workflows/deploy.yml</code>) que compila automaticamente a pasta <code>dist</code> e remover o <code>static.yml</code> conflitante.
+                      </li>
+                      <li>
+                        <strong>Passo 2 (No GitHub.com):</strong> Acesse o repositório em <code>Settings &gt; Pages</code> e altere a opção <em>Source</em> para <strong>GitHub Actions</strong>.
+                      </li>
+                    </ol>
+                  </div>
+
+                  <div className="pt-2 flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={handleRepairGitHubPages}
+                      disabled={repairingGit}
+                      className="bg-red-600 hover:bg-black text-white px-6 py-4 rounded-xl font-black text-xs uppercase tracking-widest transition-all shadow-md flex items-center justify-center gap-2 disabled:bg-gray-400 cursor-pointer active:scale-95"
+                    >
+                      {repairingGit ? (
+                        <>
+                          <RefreshCw className="animate-spin" size={18} />
+                          Reparando Configuração no GitHub...
+                        </>
+                      ) : (
+                        <>
+                          <Wrench size={18} />
+                          🚀 Corrigir e Ativar GitHub Pages Automaticamente
+                        </>
+                      )}
+                    </button>
+
+                    <a 
+                      href="https://github.com/tomsoftwar/mariliaja/settings/pages" 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="bg-zinc-900 hover:bg-black text-white px-5 py-4 rounded-xl font-black text-xs uppercase tracking-widest transition-all flex items-center justify-center gap-2 border border-zinc-700"
+                    >
+                      <ExternalLink size={16} /> Abrir Configurações do GitHub Pages
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* FULL PROJECT SYNC CARD (TV MARILIA JA, 3 COLUMNS, ADS, ALL CODE) */}
+            <div className="bg-gradient-to-br from-zinc-900 to-black text-white border-4 border-black p-6 rounded-2xl mb-8 shadow-xl">
+              <div className="flex items-start gap-4">
+                <div className="p-3 bg-[#FF0000] text-white rounded-xl shrink-0 mt-1 shadow-lg">
+                  <UploadCloud size={28} />
+                </div>
+                <div className="space-y-3 flex-1">
+                  <div>
+                    <span className="bg-[#FF0000] text-white text-[9px] font-black uppercase px-2.5 py-0.5 rounded-full tracking-widest">
+                      Atualização do Código Fonte
+                    </span>
+                    <h3 className="text-xl font-black uppercase tracking-tight text-white mt-1">
+                      Sincronizar Portal Completo para o GitHub
+                    </h3>
+                    <p className="text-xs text-gray-300 font-medium mt-1 leading-relaxed">
+                      Seu repositório do GitHub foi criado anteriormente e não continha os arquivos novos da <strong>TV MARÍLIA JÁ</strong>, o layout com <strong>3 colunas de notícias</strong> e os <strong>espaços para anúncios ADS</strong>. Clique no botão abaixo para enviar todo o código atualizado em 1 clique!
+                    </p>
+                  </div>
+
+                  {syncProgressMessage && (
+                    <div className="bg-zinc-800 border border-zinc-700 p-3 rounded-xl text-xs font-bold text-amber-300 flex items-center gap-2">
+                      <RefreshCw className="animate-spin text-amber-400" size={16} />
+                      <span>{syncProgressMessage}</span>
+                    </div>
+                  )}
+
+                  <div className="pt-2 flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={handleSyncEntireProject}
+                      disabled={syncingAllProject}
+                      className="bg-[#FF0000] hover:bg-white hover:text-black text-white px-7 py-4 rounded-xl font-black text-xs uppercase tracking-widest transition-all shadow-lg flex items-center justify-center gap-3 disabled:bg-gray-700 cursor-pointer active:scale-95"
+                    >
+                      {syncingAllProject ? (
+                        <>
+                          <RefreshCw className="animate-spin" size={18} />
+                          Enviando Código Completo ao GitHub...
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles size={18} />
+                          🚀 Sincronizar Todo o Código Atualizado para o GitHub
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -430,9 +817,19 @@ export default function PostNews() {
                   value={githubSettings.token}
                   onChange={(e) => setGithubSettings({ ...githubSettings, token: e.target.value })}
                 />
-                <p className="text-[10px] text-gray-400 mt-1">
-                  O token é armazenado com segurança apenas no seu navegador para realizar os commits de notícias no arquivo <code>public/data/news.json</code>.
-                </p>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 mt-1.5">
+                  <p className="text-[10px] text-gray-400">
+                    O token fica salvo apenas no seu navegador para atualizar as notícias e o código do portal.
+                  </p>
+                  <a
+                    href="https://github.com/settings/tokens/new?scopes=repo&description=Portal%20Marilia%20Ja"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[11px] font-black text-[#FF0000] hover:text-black flex items-center gap-1 shrink-0"
+                  >
+                    <ExternalLink size={12} /> Gerar Token no GitHub Agora
+                  </a>
+                </div>
               </div>
 
               <button
@@ -440,6 +837,358 @@ export default function PostNews() {
                 className="px-6 py-3 bg-gray-900 text-white hover:bg-black rounded-xl font-black text-xs uppercase tracking-widest transition-colors"
               >
                 Salvar Configurações
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* VIEW: TV MARÍLIA JÁ (YOUTUBE VIDEOS MANAGEMENT) */}
+      {view === 'videos' && (
+        <div className="space-y-10">
+          {/* Add Video Card */}
+          <div className="bg-gray-50 border-4 border-black p-6 md:p-8 rounded-2xl shadow-sm">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="p-3 bg-red-100 text-[#FF0000] rounded-xl border-2 border-red-200">
+                <Tv size={28} />
+              </div>
+              <div>
+                <h2 className="text-2xl font-black uppercase tracking-tight">Publicar Vídeo na TV Marília Já</h2>
+                <p className="text-xs text-gray-500 font-bold uppercase tracking-wider">
+                  Adicione vídeos do YouTube para serem exibidos na seção da TV na página inicial.
+                </p>
+              </div>
+            </div>
+
+            <form onSubmit={handleSaveVideo} className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 block mb-1">
+                    Link do YouTube ou ID do Vídeo *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="https://www.youtube.com/watch?v=... ou ID"
+                    className="w-full border-2 border-gray-200 bg-white p-3.5 rounded-xl font-bold focus:border-[#FF0000] outline-none text-sm"
+                    value={videoFormData.youtubeUrl}
+                    onChange={(e) => setVideoFormData({ ...videoFormData, youtubeUrl: e.target.value })}
+                  />
+                  <p className="text-[10px] text-gray-400 mt-1">
+                    Suporta links de vídeos normais, Shorts ou links compartilhados do YouTube.
+                  </p>
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 block mb-1">
+                    Título do Vídeo na TV Marília Já *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Ex: Reportagem Especial: Nova Praça do Centro"
+                    className="w-full border-2 border-gray-200 bg-white p-3.5 rounded-xl font-bold focus:border-[#FF0000] outline-none text-sm"
+                    value={videoFormData.title}
+                    onChange={(e) => setVideoFormData({ ...videoFormData, title: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 block mb-1">
+                  Descrição / Resumo do Vídeo (Opcional)
+                </label>
+                <textarea
+                  rows={2}
+                  placeholder="Breve descrição da reportagem ou cobertura..."
+                  className="w-full border-2 border-gray-200 bg-white p-3.5 rounded-xl font-medium focus:border-[#FF0000] outline-none text-xs"
+                  value={videoFormData.description}
+                  onChange={(e) => setVideoFormData({ ...videoFormData, description: e.target.value })}
+                />
+              </div>
+
+              <div className="flex items-center gap-3 bg-white p-3.5 rounded-xl border-2 border-gray-200">
+                <input
+                  type="checkbox"
+                  id="videoIsFeatured"
+                  className="w-5 h-5 accent-[#FF0000] cursor-pointer"
+                  checked={videoFormData.isFeatured}
+                  onChange={(e) => setVideoFormData({ ...videoFormData, isFeatured: e.target.checked })}
+                />
+                <label htmlFor="videoIsFeatured" className="text-xs font-black uppercase tracking-wider cursor-pointer">
+                  Marcar como Destaque Principal da TV Marília Já
+                </label>
+              </div>
+
+              <button
+                type="submit"
+                disabled={videoLoading}
+                className="bg-[#FF0000] hover:bg-black text-white px-8 py-4 rounded-xl font-black text-xs uppercase tracking-widest transition-all shadow-md cursor-pointer flex items-center justify-center gap-2"
+              >
+                <Plus size={16} />
+                {videoLoading ? 'Publicando...' : 'Adicionar Vídeo à TV Marília Já'}
+              </button>
+            </form>
+          </div>
+
+          {/* List of Published YouTube Videos */}
+          <div>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b-2 border-black pb-3 mb-6 gap-3">
+              <div>
+                <h3 className="text-xl font-black uppercase tracking-tight flex items-center gap-2">
+                  <Tv size={20} className="text-[#FF0000]" />
+                  Vídeos Publicados na TV Marília Já ({videoList.length})
+                </h3>
+                <span className="text-xs text-gray-400 font-bold uppercase">
+                  Exibidos na Home do Portal
+                </span>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleSaveAllVideos}
+                disabled={savingAllVideos}
+                className="bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white px-5 py-2.5 rounded-xl font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all shadow-md cursor-pointer shrink-0"
+                title="Gravar a lista atual de vídeos permanentemente no servidor"
+              >
+                <Save size={16} />
+                {savingAllVideos ? 'Gravando no Servidor...' : 'Salvar Lista de Vídeos'}
+              </button>
+            </div>
+
+            {/* Aviso e Botão de Salvar em Destaque ao Deletar Vídeos */}
+            {hasDeletedVideos && (
+              <div className="bg-amber-50 border-3 border-amber-400 p-4 sm:p-5 rounded-2xl mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-sm animate-in fade-in">
+                <div className="flex items-start sm:items-center gap-3">
+                  <div className="w-10 h-10 bg-amber-500 text-white rounded-xl flex items-center justify-center shrink-0 font-black">
+                    <AlertCircle size={22} />
+                  </div>
+                  <div>
+                    <p className="text-xs sm:text-sm font-black uppercase text-amber-950 tracking-wide">
+                      Vídeos foram deletados da lista!
+                    </p>
+                    <p className="text-xs text-amber-900 font-bold mt-0.5">
+                      Para garantir que os vídeos excluídos nunca mais retornem, clique no botão ao lado para salvar permanentemente no servidor.
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleSaveAllVideos}
+                  disabled={savingAllVideos}
+                  className="w-full md:w-auto bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white px-6 py-3 rounded-xl font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all shadow-lg cursor-pointer shrink-0"
+                >
+                  <Save size={16} />
+                  {savingAllVideos ? 'Salvando...' : 'SALVAR ALTERAÇÕES AGORA'}
+                </button>
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {videoList.map((vid) => {
+                const thumb = `https://img.youtube.com/vi/${vid.youtubeId}/hqdefault.jpg`;
+
+                return (
+                  <div key={vid.id} className="bg-white border-4 border-black rounded-2xl overflow-hidden flex flex-col shadow-sm group">
+                    {/* Thumbnail & YouTube link */}
+                    <div className="relative aspect-video bg-black overflow-hidden border-b-2 border-black">
+                      <img 
+                        src={thumb} 
+                        alt={vid.title} 
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = `https://img.youtube.com/vi/${vid.youtubeId}/0.jpg`;
+                        }}
+                      />
+                      <a
+                        href={vid.youtubeUrl || `https://www.youtube.com/watch?v=${vid.youtubeId}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="absolute inset-0 bg-black/40 hover:bg-black/20 flex items-center justify-center transition-colors text-white"
+                        title="Assistir no YouTube"
+                      >
+                        <div className="p-3 bg-[#FF0000] rounded-full shadow-lg">
+                          <Play size={18} fill="currentColor" />
+                        </div>
+                      </a>
+                      {vid.isFeatured && (
+                        <span className="absolute top-2 left-2 bg-[#FF0000] text-white text-[9px] font-black uppercase px-2 py-0.5 rounded shadow">
+                          Destaque
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="p-4 flex-1 flex flex-col justify-between">
+                      <div>
+                        <h4 className="text-sm font-black uppercase tracking-tight line-clamp-2 mb-1.5 leading-snug">
+                          {vid.title}
+                        </h4>
+                        {vid.description && (
+                          <p className="text-xs text-gray-500 font-medium line-clamp-2 mb-3">
+                            {vid.description}
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="pt-3 border-t border-gray-100 flex items-center justify-between gap-2 mt-auto">
+                        <a
+                          href={vid.youtubeUrl || `https://www.youtube.com/watch?v=${vid.youtubeId}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-[10px] font-bold text-gray-500 hover:text-[#FF0000] inline-flex items-center gap-1 uppercase"
+                        >
+                          <ExternalLink size={11} /> Ver no YouTube
+                        </a>
+
+                        {confirmDeleteVideoId === vid.id ? (
+                          <div className="flex items-center gap-1">
+                            <button
+                              onClick={() => handleDeleteVideo(vid.id)}
+                              className="text-[10px] font-black uppercase bg-red-600 text-white px-2 py-1 rounded"
+                            >
+                              Confirmar
+                            </button>
+                            <button
+                              onClick={() => setConfirmDeleteVideoId(null)}
+                              className="text-[10px] font-bold text-gray-500 px-1"
+                            >
+                              Não
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => setConfirmDeleteVideoId(vid.id)}
+                            className="text-gray-400 hover:text-red-600 p-1.5 rounded transition-colors"
+                            title="Excluir vídeo"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {videoList.length > 0 && (
+              <div className="mt-8 flex flex-col sm:flex-row items-center justify-between gap-4 bg-gray-50 p-4 sm:p-5 rounded-2xl border-2 border-gray-200">
+                <span className="text-xs font-black uppercase tracking-wider text-gray-500">
+                  Total de {videoList.length} {videoList.length === 1 ? 'vídeo ativo' : 'vídeos ativos'} na TV Marília Já
+                </span>
+                <button
+                  type="button"
+                  onClick={handleSaveAllVideos}
+                  disabled={savingAllVideos}
+                  className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white px-6 py-3 rounded-xl font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all shadow-md cursor-pointer"
+                >
+                  <Save size={16} />
+                  {savingAllVideos ? 'Gravando no Servidor...' : 'Salvar Lista de Vídeos Permanentemente'}
+                </button>
+              </div>
+            )}
+
+            {videoList.length === 0 && (
+              <div className="text-center py-16 bg-gray-50 rounded-2xl border-2 border-dashed border-gray-200">
+                <p className="font-black text-gray-400 uppercase text-sm">
+                  Nenhum vídeo cadastrado na TV Marília Já ainda.
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* VIEW: PORTAL ADS MANAGEMENT */}
+      {view === 'ads' && (
+        <div className="space-y-8">
+          <div className="bg-gray-50 border-4 border-black p-6 md:p-8 rounded-2xl shadow-sm">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="p-3 bg-red-100 text-[#FF0000] rounded-xl border-2 border-red-200">
+                <Megaphone size={28} />
+              </div>
+              <div>
+                <h2 className="text-2xl font-black uppercase tracking-tight">Publicidade e Banners da Página Inicial</h2>
+                <p className="text-xs text-gray-500 font-bold uppercase tracking-wider">
+                  Configure os 3 espaços de publicidade da capa do portal: Topo, Lateral (ao lado da seção Região) e Rodapé.
+                </p>
+              </div>
+            </div>
+
+            <form onSubmit={handleSaveAds} className="space-y-6">
+              {/* ADS Top */}
+              <div className="bg-white p-5 rounded-2xl border-2 border-gray-200 space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-black uppercase tracking-wider text-black flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 bg-[#FF0000] inline-block"></span>
+                    1. ADS Superior (Super Banner Retangular no Topo)
+                  </label>
+                  <span className="text-[10px] text-gray-400 font-bold uppercase">Horizontal</span>
+                </div>
+                <p className="text-[11px] text-gray-500 font-medium">
+                  Exibido no topo da página inicial logo abaixo do menu. Cole a URL da imagem ou código HTML/Script do anunciante.
+                </p>
+                <textarea
+                  rows={2}
+                  placeholder="https://exemplo.com/banner-topo.jpg ou código <script> / <iframe>"
+                  className="w-full border-2 border-gray-200 bg-gray-50 p-3 rounded-xl font-mono text-xs focus:border-[#FF0000] focus:bg-white outline-none"
+                  value={adsFormData.homeTop || ''}
+                  onChange={(e) => setAdsFormData({ ...adsFormData, homeTop: e.target.value })}
+                />
+              </div>
+
+              {/* ADS Grid (Beside Região) */}
+              <div className="bg-white p-5 rounded-2xl border-2 border-gray-200 space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-black uppercase tracking-wider text-black flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 bg-[#FF0000] inline-block"></span>
+                    2. ADS Lateral da Grade (Coluna ao lado da seção REGIÃO)
+                  </label>
+                  <span className="text-[10px] text-gray-400 font-bold uppercase">Coluna 3</span>
+                </div>
+                <p className="text-[11px] text-gray-500 font-medium">
+                  Preenche a 3ª coluna ao lado de Região na grade da página inicial. Cole a URL da imagem ou código HTML.
+                </p>
+                <textarea
+                  rows={2}
+                  placeholder="https://exemplo.com/banner-lateral.jpg ou código <script> / <iframe>"
+                  className="w-full border-2 border-gray-200 bg-gray-50 p-3 rounded-xl font-mono text-xs focus:border-[#FF0000] focus:bg-white outline-none"
+                  value={adsFormData.homeGrid || ''}
+                  onChange={(e) => setAdsFormData({ ...adsFormData, homeGrid: e.target.value })}
+                />
+              </div>
+
+              {/* ADS Bottom */}
+              <div className="bg-white p-5 rounded-2xl border-2 border-gray-200 space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-black uppercase tracking-wider text-black flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 bg-[#FF0000] inline-block"></span>
+                    3. ADS Inferior (Super Banner Retangular Acima do Rodapé)
+                  </label>
+                  <span className="text-[10px] text-gray-400 font-bold uppercase">Horizontal</span>
+                </div>
+                <p className="text-[11px] text-gray-500 font-medium">
+                  Exibido no final da página inicial logo antes do rodapé. Cole a URL da imagem ou código HTML/Script.
+                </p>
+                <textarea
+                  rows={2}
+                  placeholder="https://exemplo.com/banner-rodape.jpg ou código <script> / <iframe>"
+                  className="w-full border-2 border-gray-200 bg-gray-50 p-3 rounded-xl font-mono text-xs focus:border-[#FF0000] focus:bg-white outline-none"
+                  value={adsFormData.homeBottom || ''}
+                  onChange={(e) => setAdsFormData({ ...adsFormData, homeBottom: e.target.value })}
+                />
+              </div>
+
+              <div className="bg-blue-50 border border-blue-200 p-4 rounded-xl text-xs text-blue-800 font-medium">
+                💡 <strong>Dica:</strong> Se deixar qualquer um dos campos em branco, o portal exibirá automaticamente o anúncio visual padrão de convite para patrocinadores com link direto para a página &quot;Anuncie no MJ&quot;.
+              </div>
+
+              <button
+                type="submit"
+                className="bg-[#FF0000] hover:bg-black text-white px-8 py-4 rounded-xl font-black text-xs uppercase tracking-widest transition-all shadow-md cursor-pointer flex items-center justify-center gap-2"
+              >
+                <CheckCircle2 size={16} /> Salvar Banners Publicitários
               </button>
             </form>
           </div>
@@ -899,11 +1648,30 @@ export default function PostNews() {
               </button>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
+              <button
+                type="button"
+                onClick={handleSaveAllNews}
+                disabled={savingAllNews}
+                className="bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white px-4 py-2 rounded-lg text-xs font-black uppercase tracking-wider flex items-center gap-1.5 transition-all shadow-md cursor-pointer"
+                title="Gravar a lista atual de notícias permanentemente no servidor"
+              >
+                <Save size={14} />
+                {savingAllNews ? 'Gravando no Servidor...' : 'Salvar Lista de Notícias'}
+              </button>
+              <button
+                onClick={handleSyncToServer}
+                disabled={syncingServer}
+                className="bg-zinc-800 hover:bg-black text-white px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 transition-colors shadow-xs cursor-pointer"
+                title="Sincronizar notícias com o servidor central"
+              >
+                <RefreshCw size={12} className={syncingServer ? 'animate-spin' : ''} />
+                {syncingServer ? 'Sincronizando...' : 'Sincronizar Servidor'}
+              </button>
               <button
                 onClick={handleSyncToGitHub}
                 disabled={syncingGit}
-                className="bg-black hover:bg-[#FF0000] text-white px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 transition-colors"
+                className="bg-black hover:bg-[#FF0000] text-white px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 transition-colors cursor-pointer"
                 title="Sincronizar notícias no GitHub"
               >
                 <RefreshCw size={12} className={syncingGit ? 'animate-spin' : ''} />
@@ -911,7 +1679,7 @@ export default function PostNews() {
               </button>
               <button
                 onClick={() => newsService.downloadNewsJson()}
-                className="bg-gray-100 hover:bg-gray-200 text-black px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 transition-colors"
+                className="bg-gray-100 hover:bg-gray-200 text-black px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 transition-colors cursor-pointer"
                 title="Baixar arquivo news.json"
               >
                 <Download size={12} />
@@ -919,6 +1687,35 @@ export default function PostNews() {
               </button>
             </div>
           </div>
+
+          {/* Aviso e Botão de Salvar em Destaque ao Deletar Notícias */}
+          {hasDeletedNews && (
+            <div className="bg-amber-50 border-3 border-amber-400 p-4 sm:p-5 rounded-2xl mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-sm animate-in fade-in">
+              <div className="flex items-start sm:items-center gap-3">
+                <div className="w-10 h-10 bg-amber-500 text-white rounded-xl flex items-center justify-center shrink-0 font-black">
+                  <AlertCircle size={22} />
+                </div>
+                <div>
+                  <p className="text-xs sm:text-sm font-black uppercase text-amber-950 tracking-wide">
+                    Notícias foram deletadas da lista!
+                  </p>
+                  <p className="text-xs text-amber-900 font-bold mt-0.5">
+                    Para garantir que as notícias excluídas nunca mais retornem, clique no botão ao lado para salvar permanentemente no servidor.
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleSaveAllNews}
+                disabled={savingAllNews}
+                className="w-full md:w-auto bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white px-6 py-3 rounded-xl font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all shadow-lg cursor-pointer shrink-0"
+              >
+                <Save size={16} />
+                {savingAllNews ? 'Salvando...' : 'SALVAR ALTERAÇÕES AGORA'}
+              </button>
+            </div>
+          )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {displayedNews.map((n) => {
@@ -1018,6 +1815,158 @@ export default function PostNews() {
                 </button>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* POP-UP MODAL NO CENTRO DA TELA: SENHA ALTERADA COM SUCESSO! */}
+      {showPasswordSuccessModal && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200"
+          onClick={() => setShowPasswordSuccessModal(false)}
+        >
+          <div 
+            className="bg-white rounded-3xl p-6 md:p-8 max-w-sm w-full border-4 border-black shadow-2xl text-center relative animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+            role="alertdialog"
+            aria-modal="true"
+          >
+            {/* Botão de Fechar */}
+            <button 
+              type="button"
+              onClick={() => setShowPasswordSuccessModal(false)}
+              className="absolute top-4 right-4 text-gray-400 hover:text-black hover:bg-gray-100 p-1.5 rounded-full transition-colors cursor-pointer"
+              aria-label="Fechar aviso"
+            >
+              <X size={20} />
+            </button>
+
+            {/* Ícone de Sucesso */}
+            <div className="w-16 h-16 bg-emerald-100 border-2 border-emerald-400 text-emerald-600 rounded-2xl mx-auto flex items-center justify-center mb-4 shadow-sm">
+              <CheckCircle2 size={36} className="text-emerald-600" />
+            </div>
+
+            {/* Texto exato solicitado: SENHA ALTERADA COM SUCESSO! */}
+            <h3 className="text-xl md:text-2xl font-black uppercase tracking-tight text-gray-900 mb-2">
+              SENHA ALTERADA COM SUCESSO!
+            </h3>
+
+            <p className="text-xs text-gray-600 font-bold mb-6 leading-relaxed">
+              Sua nova senha de acesso foi salva e já está ativa para os próximos logins.
+            </p>
+
+            <button
+              type="button"
+              onClick={() => setShowPasswordSuccessModal(false)}
+              className="w-full bg-[#FF0000] text-white hover:bg-black font-black uppercase text-xs tracking-widest py-3.5 px-6 rounded-xl transition-all shadow-lg active:scale-95 cursor-pointer"
+            >
+              OK, Entendido
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* POP-UP MODAL: FORMULÁRIO DE ALTERAÇÃO DE SENHA */}
+      {showChangePasswordModal && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200"
+          onClick={() => setShowChangePasswordModal(false)}
+        >
+          <div 
+            className="bg-white rounded-3xl p-6 md:p-8 max-w-md w-full border-4 border-black shadow-2xl relative animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+          >
+            <button 
+              type="button"
+              onClick={() => setShowChangePasswordModal(false)}
+              className="absolute top-4 right-4 text-gray-400 hover:text-black hover:bg-gray-100 p-1.5 rounded-full transition-colors cursor-pointer"
+              aria-label="Fechar"
+            >
+              <X size={20} />
+            </button>
+
+            <div className="flex items-center gap-3 mb-6">
+              <div className="p-3 bg-red-50 text-[#FF0000] border-2 border-red-200 rounded-xl">
+                <KeyRound size={22} />
+              </div>
+              <div>
+                <h3 className="text-xl font-black uppercase tracking-tight text-gray-900">
+                  Alterar Senha de Acesso
+                </h3>
+                <p className="text-xs text-gray-500 font-bold">
+                  {user.displayName || user.email}
+                </p>
+              </div>
+            </div>
+
+            {passModalError && (
+              <div className="bg-red-50 text-red-600 p-3.5 rounded-xl mb-4 text-xs font-bold border-2 border-red-200 flex items-start gap-2 animate-in fade-in">
+                <AlertCircle size={16} className="shrink-0 mt-0.5" />
+                <span>{passModalError}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleUserChangePassword} className="space-y-4">
+              <div>
+                <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 block mb-1">
+                  Senha Atual *
+                </label>
+                <input
+                  type="password"
+                  required
+                  placeholder="Digite sua senha atual"
+                  className="w-full border-2 border-gray-200 p-3 rounded-xl font-bold text-sm outline-none focus:border-[#FF0000] transition-colors"
+                  value={userCurrentPass}
+                  onChange={(e) => setUserCurrentPass(e.target.value)}
+                />
+              </div>
+
+              <div>
+                <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 block mb-1">
+                  Nova Senha *
+                </label>
+                <input
+                  type="password"
+                  required
+                  placeholder="Mínimo 6 caracteres"
+                  className="w-full border-2 border-gray-200 p-3 rounded-xl font-bold text-sm outline-none focus:border-[#FF0000] transition-colors"
+                  value={userNewPass}
+                  onChange={(e) => setUserNewPass(e.target.value)}
+                />
+              </div>
+
+              <div>
+                <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 block mb-1">
+                  Confirmar Nova Senha *
+                </label>
+                <input
+                  type="password"
+                  required
+                  placeholder="Repita a nova senha"
+                  className="w-full border-2 border-gray-200 p-3 rounded-xl font-bold text-sm outline-none focus:border-[#FF0000] transition-colors"
+                  value={userConfirmPass}
+                  onChange={(e) => setUserConfirmPass(e.target.value)}
+                />
+              </div>
+
+              <div className="pt-2 flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowChangePasswordModal(false)}
+                  className="flex-1 bg-gray-100 hover:bg-gray-200 text-black py-3 rounded-xl font-black text-xs uppercase tracking-widest transition-colors cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 bg-[#FF0000] hover:bg-black text-white py-3 rounded-xl font-black text-xs uppercase tracking-widest transition-colors shadow-md cursor-pointer"
+                >
+                  Salvar Senha
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

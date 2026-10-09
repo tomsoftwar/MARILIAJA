@@ -8,19 +8,56 @@
 }
 
 @layer base {
-  body {
+  html, body {
     @apply bg-white text-black antialiased;
+    overflow-x: hidden;
+    max-width: 100vw;
+    width: 100%;
   }
+
+  *, *::before, *::after {
+    box-sizing: border-box;
+  }
+
   h1, h2, h3, h4, h5, h6 {
     @apply font-heading tracking-tighter uppercase leading-none;
+    overflow-wrap: break-word;
+    word-break: break-word;
+  }
+
+  p, span, a, div, article, section, main {
+    overflow-wrap: break-word;
+    word-break: break-word;
+  }
+
+  img, video, iframe, embed, object {
+    max-width: 100%;
+    height: auto;
   }
 }
 
-/* Custom Editorial focus utilities */
+/* Custom Editorial utilities */
 .editorial-border-top {
   @apply border-t-4 border-black pt-2;
 }
 
 .category-tag {
   @apply bg-black text-white text-[10px] font-bold py-1 px-2 w-max uppercase mb-2;
+}
+
+/* Enforce containment for Quill editor */
+.ql-container {
+  font-size: 1rem !important;
+  font-family: inherit !important;
+}
+
+.ql-editor {
+  max-width: 100% !important;
+  overflow-wrap: break-word !important;
+  word-break: break-word !important;
+}
+
+.ql-editor img {
+  max-width: 100% !important;
+  height: auto !important;
 }
