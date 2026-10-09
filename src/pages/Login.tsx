@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { authService } from '../lib/authService';
-import { Lock, User, Github, AlertCircle, KeyRound, ExternalLink, ShieldCheck, Eye, EyeOff, Info } from 'lucide-react';
+import { Lock, User, Github, AlertCircle, KeyRound, ExternalLink, ShieldCheck, Eye, EyeOff } from 'lucide-react';
 
 export default function Login() {
   const [tab, setTab] = useState<'credentials' | 'github'>('credentials');
@@ -41,12 +41,6 @@ export default function Login() {
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleFillDefaultAdmin = () => {
-    setIdentifier('admin');
-    setPassword('mariliaja@2026');
-    setErrorStatus(null);
   };
 
   const handleGitHubLogin = async (e: React.FormEvent) => {
@@ -158,28 +152,6 @@ export default function Login() {
                   {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
               </div>
-            </div>
-
-            {/* Hint Box for Default Admin */}
-            <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-900 flex items-start justify-between gap-2">
-              <div className="flex items-start gap-2">
-                <Info size={16} className="text-amber-600 shrink-0 mt-0.5" />
-                <div>
-                  <p className="font-bold text-[11px] uppercase tracking-wide text-amber-800">
-                    Acesso Administrador Padrão:
-                  </p>
-                  <p className="text-[11px] text-amber-700 mt-0.5">
-                    Usuário: <code className="font-bold bg-amber-100 px-1 py-0.5 rounded">admin</code> | Senha: <code className="font-bold bg-amber-100 px-1 py-0.5 rounded">mariliaja@2026</code>
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={handleFillDefaultAdmin}
-                className="text-[10px] font-black uppercase tracking-wider bg-amber-200 hover:bg-amber-300 text-amber-900 px-2 py-1 rounded-md shrink-0 cursor-pointer transition-colors"
-              >
-                Preencher
-              </button>
             </div>
 
             <div className="pt-2">

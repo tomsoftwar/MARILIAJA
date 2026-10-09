@@ -5,12 +5,12 @@ import { newsService } from '../lib/newsService';
 import { videoService, extractYouTubeId } from '../lib/videoService';
 import { adService, PortalAdsConfig } from '../lib/adService';
 import { authService, AuthUser } from '../lib/authService';
-import { syncEntireProjectToGitHub } from '../lib/projectSyncService';
+import { syncEntireProjectToGitHub, downloadProjectZip } from '../lib/projectSyncService';
 import { 
   Trash2, Edit, Plus, LayoutGrid, X, Users, UserPlus, 
   Shield, CheckCircle2, Lock, UserCheck, Download, Github, 
   RefreshCw, Settings, KeyRound, AlertCircle, Tv, Video, Play, ExternalLink, Megaphone, Save,
-  AlertTriangle, Wrench, Sparkles, UploadCloud, Check
+  AlertTriangle, Wrench, Sparkles, UploadCloud, Check, Package
 } from 'lucide-react';
 
 import ReactQuill from 'react-quill-new';
@@ -747,27 +747,36 @@ export default function PostNews() {
             </div>
 
             {/* Quick Actions */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
               <button
                 type="button"
                 onClick={handleSyncToGitHub}
                 disabled={syncingGit}
-                className="bg-[#FF0000] text-white p-5 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-black transition-colors flex items-center justify-center gap-3 shadow-lg disabled:bg-gray-300"
+                className="bg-[#FF0000] text-white p-4 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-black transition-colors flex items-center justify-center gap-2 shadow-lg disabled:bg-gray-300 cursor-pointer"
               >
                 {syncingGit ? (
-                  <RefreshCw className="animate-spin" size={18} />
+                  <RefreshCw className="animate-spin" size={16} />
                 ) : (
-                  <RefreshCw size={18} />
+                  <RefreshCw size={16} />
                 )}
-                Sincronizar no GitHub Agora
+                Sincronizar no GitHub
+              </button>
+
+              <button
+                type="button"
+                onClick={() => downloadProjectZip()}
+                className="bg-zinc-900 text-white p-4 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-black transition-colors flex items-center justify-center gap-2 shadow-lg border border-zinc-700 cursor-pointer"
+              >
+                <Package size={16} />
+                Baixar Projeto (.ZIP)
               </button>
 
               <button
                 type="button"
                 onClick={() => newsService.downloadNewsJson()}
-                className="bg-black text-white p-5 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-gray-800 transition-colors flex items-center justify-center gap-3 shadow-lg"
+                className="bg-black text-white p-4 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-gray-800 transition-colors flex items-center justify-center gap-2 shadow-lg cursor-pointer"
               >
-                <Download size={18} />
+                <Download size={16} />
                 Baixar news.json
               </button>
             </div>

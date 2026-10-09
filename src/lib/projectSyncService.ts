@@ -44,6 +44,26 @@ export function getAllProjectFiles(): Record<string, string> {
   return result;
 }
 
+export async function downloadProjectZip(): Promise<void> {
+  const JSZip = (await import('jszip')).default;
+  const zip = new JSZip();
+  const allFiles = getAllProjectFiles();
+
+  for (const [filePath, content] of Object.entries(allFiles)) {
+    zip.file(filePath, content);
+  }
+
+  const blob = await zip.generateAsync({ type: 'blob' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'mariliaja-codigo-completo.zip';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
 export async function syncEntireProjectToGitHub(config: {
   githubToken: string;
   repo: string;
