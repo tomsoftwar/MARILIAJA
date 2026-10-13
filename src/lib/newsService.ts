@@ -1,181 +1,161 @@
 import { NewsArticle, NewsCategory } from '../types';
 import { INITIAL_NEWS } from '../data/initialNews';
+import { getApps, initializeApp } from 'firebase/app';
+import {
+  getFirestore,
+  collection,
+  doc,
+  getDocs,
+  setDoc,
+  deleteDoc,
+  onSnapshot,
+  writeBatch,
+} from 'firebase/firestore';
 
+// Firebase do projeto MARÍLIAJÁ
+const firebaseConfig = {
+  apiKey: "AIzaSyArzX6-9e8CyROK98-OiPHqnEE3qdVco44",
+  authDomain: "mariliaja-94f23.firebaseapp.com",
+  projectId: "mariliaja-94f23",
+  storageBucket: "mariliaja-94f23.firebasestorage.app",
+  messagingSenderId: "720675317766",
+  appId: "1:720675317766:web:559e75967a48d6cf00fb87",
+  measurementId: "G-N2GPF8NF3D",
+};
+
+const firebaseApp = getApps().find(app => app.name === 'mariliaja-news') || initializeApp(firebaseConfig, 'mariliaja-news');
+const db = getFirestore(firebaseApp);
+const NEWS_COLLECTION = 'noticias';
 const STORAGE_KEY = 'mj_news_articles';
-const DELETED_NEWS_KEY = 'mj_deleted_news_ids';
 
 type NewsListener = (news: NewsArticle[]) => void;
 const listeners: Set<NewsListener> = new Set();
-
 let memoryNews: NewsArticle[] = [];
 let isInitialized = false;
-
-function getDeletedNewsIds(): Set<string> {
-  try {
-    const raw = localStorage.getItem(DELETED_NEWS_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed)) return new Set(parsed);
-    }
-  } catch (e) {
-    console.warn("Failed to load deleted news ids:", e);
-  }
-  return new Set();
-}
-
-function addDeletedNewsId(id: string) {
-  try {
-    const set = getDeletedNewsIds();
-    set.add(id);
-    localStorage.setItem(DELETED_NEWS_KEY, JSON.stringify(Array.from(set)));
-  } catch (e) {
-    console.warn("Failed to save deleted news id:", e);
-  }
-}
+let unsubscribeFirestore: (() => void) | null = null;
 
 function notifyListeners(news: NewsArticle[]) {
   listeners.forEach(fn => {
-    try {
-      fn(news);
-    } catch (e) {
-      console.error("Error in news listener:", e);
-    }
+    try { fn(news); } catch (e) { console.error('Erro ao atualizar notícias na tela:', e); }
   });
-}
-
-function loadFromLocalCache(): NewsArticle[] {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored !== null) {
-      const parsed = JSON.parse(stored);
-      if (Array.isArray(parsed)) {
-        const deletedIds = getDeletedNewsIds();
-        return parsed.filter(n => n && n.id && !deletedIds.has(n.id));
-      }
-    }
-  } catch (e) {
-    console.warn("Failed to load news from localStorage:", e);
-  }
-  const deletedIds = getDeletedNewsIds();
-  return INITIAL_NEWS.filter(n => !deletedIds.has(n.id));
 }
 
 function saveToLocalCache(news: NewsArticle[]) {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(news));
-  } catch (e) {
-    console.warn("Failed to save news to localStorage:", e);
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(news)); } catch (e) {
+    console.warn('Não foi possível salvar o cache local:', e);
   }
 }
 
-// Multi-device server sync engine - Authoritative from server, NEVER resurrects deleted news
-async function syncWithServer(): Promise<NewsArticle[]> {
-  try {
-    const res = await fetch('/api/news');
-    if (res.ok) {
-      const serverNews: NewsArticle[] = await res.json();
-      if (Array.isArray(serverNews)) {
-        const deletedIds = getDeletedNewsIds();
-        // Strictly filter out any article deleted by the user
-        const cleanServerNews = serverNews.filter(n => n && n.id && !deletedIds.has(n.id));
-
-        // If the server had articles marked as deleted locally, purge them from the server too!
-        if (cleanServerNews.length !== serverNews.length) {
-          await fetch('/api/news/replace', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ news: cleanServerNews })
-          }).catch(e => console.error("Error purging deleted news on server:", e));
-        }
-
-        memoryNews = cleanServerNews;
-        saveToLocalCache(cleanServerNews);
-        notifyListeners(cleanServerNews);
-        return cleanServerNews;
-      }
-    }
-  } catch (err) {
-    console.warn("Could not connect to /api/news server, checking static data fallback:", err);
-  }
-
-  // Fallback for static hosting like GitHub Pages where /api/news is not available
-  try {
-    const staticRes = await fetch('./data/news.json');
-    if (staticRes.ok) {
-      const staticNews: NewsArticle[] = await staticRes.json();
-      if (Array.isArray(staticNews) && staticNews.length > 0) {
-        const deletedIds = getDeletedNewsIds();
-        const cleanStaticNews = staticNews.filter(n => n && n.id && !deletedIds.has(n.id));
-        if (cleanStaticNews.length > 0 && memoryNews.length === 0) {
-          memoryNews = cleanStaticNews;
-          saveToLocalCache(cleanStaticNews);
-          notifyListeners(cleanStaticNews);
-          return cleanStaticNews;
-        }
-      }
-    }
-  } catch (e) {
-    // quiet fallback
-  }
-
-  if (memoryNews.length === 0 && !isInitialized) {
-    memoryNews = loadFromLocalCache();
-    notifyListeners(memoryNews);
-  }
-  return memoryNews;
+// Compatibilidade com documentos antigos que possam usar campos em português.
+function normalizeArticle(id: string, raw: Record<string, any>): NewsArticle {
+  return {
+    ...raw,
+    id: raw.id || id,
+    title: raw.title ?? raw.titulo ?? '',
+    summary: raw.summary ?? raw.resumo ?? '',
+    content: raw.content ?? raw.conteudo ?? '',
+    category: raw.category ?? raw.categoria ?? NewsCategory.CIDADE,
+    imageUrl: raw.imageUrl ?? raw.imagem ?? raw.image ?? '',
+    imageCaption: raw.imageCaption ?? raw.legendaImagem ?? '',
+    authorSignature: raw.authorSignature ?? raw.autor ?? '',
+    authorId: raw.authorId ?? raw.autorId ?? '',
+    createdAt: raw.createdAt ?? raw.data ?? new Date().toISOString(),
+    updatedAt: raw.updatedAt ?? raw.data ?? new Date().toISOString(),
+    isFeatured: Boolean(raw.isFeatured ?? raw.destaque ?? false),
+    adTop: raw.adTop ?? '',
+    adMiddle: raw.adMiddle ?? '',
+    adSide: raw.adSide ?? '',
+    adBottom: raw.adBottom ?? '',
+  } as NewsArticle;
 }
 
-// Initial sync on startup
-if (typeof window !== 'undefined') {
-  memoryNews = loadFromLocalCache();
-  syncWithServer().then(() => {
+function sortNews(news: NewsArticle[]): NewsArticle[] {
+  return [...news].sort((a, b) =>
+    String(b.createdAt || '').localeCompare(String(a.createdAt || ''))
+  );
+}
+
+async function syncWithFirestore(): Promise<NewsArticle[]> {
+  try {
+    const snapshot = await getDocs(collection(db, NEWS_COLLECTION));
+    const articles = sortNews(snapshot.docs.map(item =>
+      normalizeArticle(item.id, item.data() as Record<string, any>)
+    ));
+    memoryNews = articles;
+    saveToLocalCache(articles);
     isInitialized = true;
-  });
-
-  // Re-sync on focus/visibility
-  window.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') {
-      syncWithServer();
+    notifyListeners(articles);
+    return articles;
+  } catch (error) {
+    console.error('Não foi possível carregar notícias do Firestore:', error);
+    // Cache é usado somente se o Firestore estiver indisponível.
+    if (!isInitialized) {
+      try {
+        const cached = localStorage.getItem(STORAGE_KEY);
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed)) memoryNews = parsed;
+        } else {
+          memoryNews = INITIAL_NEWS;
+        }
+      } catch {
+        memoryNews = INITIAL_NEWS;
+      }
+      notifyListeners(memoryNews);
     }
-  });
+    return memoryNews;
+  }
+}
 
-  window.addEventListener('focus', () => {
-    syncWithServer();
-  });
+function startRealtimeSync() {
+  if (unsubscribeFirestore) return;
+  unsubscribeFirestore = onSnapshot(
+    collection(db, NEWS_COLLECTION),
+    snapshot => {
+      memoryNews = sortNews(snapshot.docs.map(item =>
+        normalizeArticle(item.id, item.data() as Record<string, any>)
+      ));
+      saveToLocalCache(memoryNews);
+      isInitialized = true;
+      notifyListeners(memoryNews);
+    },
+    error => {
+      console.error('Erro na atualização em tempo real do Firestore:', error);
+      void syncWithFirestore();
+    }
+  );
+}
+
+if (typeof window !== 'undefined') {
+  try {
+    const cached = localStorage.getItem(STORAGE_KEY);
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      if (Array.isArray(parsed)) memoryNews = parsed;
+    }
+  } catch { /* cache opcional */ }
+  startRealtimeSync();
 }
 
 export const newsService = {
-  // Get all news, filtering out any deleted IDs
   getNews(): NewsArticle[] {
-    if (memoryNews.length === 0 && !isInitialized) {
-      memoryNews = loadFromLocalCache();
-    }
-    const deletedIds = getDeletedNewsIds();
-    return memoryNews.filter(n => n && n.id && !deletedIds.has(n.id));
+    return sortNews(memoryNews);
   },
 
-  // Force an immediate reload from the server
   async refreshFromServer(): Promise<NewsArticle[]> {
-    return await syncWithServer();
+    return await syncWithFirestore();
   },
 
-  // Subscribe to changes
   subscribe(callback: NewsListener): () => void {
     listeners.add(callback);
     callback(this.getNews());
-
-    if (!isInitialized) {
-      syncWithServer().then(news => callback(news));
-    }
-
-    return () => {
-      listeners.delete(callback);
-    };
+    startRealtimeSync();
+    if (!isInitialized) void syncWithFirestore();
+    return () => listeners.delete(callback);
   },
 
   getNewsById(id: string): NewsArticle | undefined {
-    const list = this.getNews();
-    return list.find(n => n.id === id);
+    return this.getNews().find(n => n.id === id);
   },
 
   getFeaturedNews(): NewsArticle[] {
@@ -190,24 +170,18 @@ export const newsService = {
     return list.filter(n => n.category === category);
   },
 
+  // Mantém a assinatura síncrona esperada pela tela; a gravação no Firestore ocorre em seguida.
   saveNews(articleData: Partial<NewsArticle>, authorId: string, editingId?: string | null): NewsArticle {
     const current = this.getNews();
     const now = new Date().toISOString();
-    let targetArticle: NewsArticle;
+    let article: NewsArticle;
 
     if (editingId) {
-      const index = current.findIndex(n => n.id === editingId);
-      if (index === -1) throw new Error("Notícia não encontrada para edição.");
-
-      targetArticle = {
-        ...current[index],
-        ...articleData,
-        updatedAt: now
-      };
-
-      current[index] = targetArticle;
+      const existing = current.find(n => n.id === editingId);
+      if (!existing) throw new Error('Notícia não encontrada para edição.');
+      article = { ...existing, ...articleData, id: editingId, updatedAt: now };
     } else {
-      targetArticle = {
+      article = {
         id: 'mj-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7),
         title: articleData.title || '',
         summary: articleData.summary || '',
@@ -216,125 +190,78 @@ export const newsService = {
         imageUrl: articleData.imageUrl || 'https://images.unsplash.com/photo-1585829365295-ab7cd400c167?q=80&w=1000&auto=format&fit=crop',
         imageCaption: articleData.imageCaption || '',
         authorSignature: articleData.authorSignature || '',
-        authorId: authorId,
+        authorId,
         adTop: articleData.adTop || '',
         adMiddle: articleData.adMiddle || '',
         adSide: articleData.adSide || '',
         adBottom: articleData.adBottom || '',
         isFeatured: articleData.isFeatured || false,
         createdAt: now,
-        updatedAt: now
-      };
-
-      current.unshift(targetArticle);
+        updatedAt: now,
+      } as NewsArticle;
     }
 
-    memoryNews = [...current];
+    memoryNews = sortNews(editingId
+      ? current.map(n => n.id === editingId ? article : n)
+      : [article, ...current]);
     saveToLocalCache(memoryNews);
     notifyListeners(memoryNews);
 
-    // Save to server
-    fetch('/api/news', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(targetArticle)
-    }).catch(err => {
-      console.error("Failed to save news to server:", err);
-    });
-
-    return targetArticle;
+    void setDoc(doc(db, NEWS_COLLECTION, article.id), { ...article })
+      .catch(error => {
+        console.error('Falha ao salvar notícia no Firestore:', error);
+        alert('Não foi possível salvar a notícia no banco de dados. Verifique as regras do Firestore e tente novamente.');
+      });
+    return article;
   },
 
   deleteNews(id: string, currentUserId: string, isAdmin: boolean): boolean {
     const current = this.getNews();
     const target = current.find(n => n.id === id);
     if (!target) return false;
-
-    // Rule: Admin can delete all, Collaborator can delete ONLY their own!
     if (!isAdmin && target.authorId !== currentUserId) {
-      throw new Error("Permissão negada: Colaboradores podem deletar apenas notícias de sua própria autoria.");
+      throw new Error('Permissão negada: colaboradores podem excluir apenas notícias de sua própria autoria.');
     }
 
-    // 1. Mark id in permanent deleted tombstones
-    addDeletedNewsId(id);
-
-    // 2. Filter from memory
-    const filtered = current.filter(n => n.id !== id);
-    memoryNews = filtered;
-
-    // 3. Save to localStorage
-    saveToLocalCache(filtered);
-    notifyListeners(filtered);
-
-    // 4. Remove from server permanently via both DELETE and replace
-    fetch(`/api/news/${encodeURIComponent(id)}`, {
-      method: 'DELETE'
-    }).catch(err => {
-      console.error("Failed to delete news from server:", err);
+    memoryNews = current.filter(n => n.id !== id);
+    saveToLocalCache(memoryNews);
+    notifyListeners(memoryNews);
+    void deleteDoc(doc(db, NEWS_COLLECTION, id)).catch(error => {
+      console.error('Falha ao excluir notícia no Firestore:', error);
+      alert('Não foi possível excluir a notícia no banco de dados. Verifique as permissões do Firestore.');
     });
-
-    fetch('/api/news/replace', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ news: filtered })
-    }).catch(err => {
-      console.error("Failed to replace news on server:", err);
-    });
-
     return true;
   },
 
-  // Authoritatively save all news to server and cache
   async saveAllNews(news: NewsArticle[]): Promise<NewsArticle[]> {
-    const deletedIds = getDeletedNewsIds();
-    const cleanNews = news.filter(n => n && n.id && !deletedIds.has(n.id));
-
-    memoryNews = cleanNews;
-    saveToLocalCache(cleanNews);
-    notifyListeners(cleanNews);
-
-    try {
-      const res = await fetch('/api/news/replace', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ news: cleanNews })
-      });
-      if (res.ok) {
-        const data = await res.json();
-        if (data && Array.isArray(data.news)) {
-          memoryNews = data.news;
-          saveToLocalCache(data.news);
-          notifyListeners(data.news);
-          return data.news;
-        }
-      }
-    } catch (e) {
-      console.error("Error saving all news to server:", e);
-    }
-
-    return cleanNews;
+    const cleanNews = news.filter(n => n && n.id);
+    const batch = writeBatch(db);
+    cleanNews.forEach(article => {
+      batch.set(doc(db, NEWS_COLLECTION, article.id), { ...article });
+    });
+    await batch.commit();
+    memoryNews = sortNews(cleanNews);
+    saveToLocalCache(memoryNews);
+    notifyListeners(memoryNews);
+    return memoryNews;
   },
 
-  // Reset to initial seed data
   resetToDefault(): void {
-    try {
-      localStorage.removeItem(DELETED_NEWS_KEY);
-    } catch (e) {}
-    memoryNews = INITIAL_NEWS;
-    saveToLocalCache(INITIAL_NEWS);
-    notifyListeners(INITIAL_NEWS);
-
-    fetch('/api/news/replace', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ news: INITIAL_NEWS })
-    }).catch(e => console.error("Error resetting news on server:", e));
+    const batch = writeBatch(db);
+    INITIAL_NEWS.forEach(article => {
+      batch.set(doc(db, NEWS_COLLECTION, article.id), { ...article });
+    });
+    void batch.commit().then(() => {
+      void syncWithFirestore();
+    }).catch(error => {
+      console.error('Erro ao restaurar notícias padrão:', error);
+      alert('Não foi possível restaurar as notícias padrão no Firestore.');
+    });
   },
 
   downloadNewsJson(): void {
     try {
-      const data = this.getNews();
-      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const blob = new Blob([JSON.stringify(this.getNews(), null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -344,7 +271,7 @@ export const newsService = {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
     } catch (e) {
-      console.error("Error downloading news.json:", e);
+      console.error('Erro ao baixar news.json:', e);
     }
   },
 
