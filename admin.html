@@ -1,0 +1,331 @@
+
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <title>Administração | MARILIAJA2</title>
+
+  <style>
+    :root {
+      font-family: Arial, Helvetica, sans-serif;
+      color: #222;
+      background: #f1f3f5;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+    }
+
+    header {
+      background: #111;
+      color: white;
+      padding: 20px;
+      border-bottom: 4px solid #c8102e;
+    }
+
+    .header-inner {
+      max-width: 1100px;
+      margin: auto;
+    }
+
+    header h1 {
+      margin: 0;
+      font-size: 26px;
+    }
+
+    header h1 span {
+      color: #ef3340;
+    }
+
+    header p {
+      margin: 8px 0 0;
+      color: #ddd;
+      font-size: 13px;
+    }
+
+    main {
+      max-width: 1100px;
+      margin: 30px auto;
+      padding: 0 16px 40px;
+    }
+
+    .panel {
+      background: white;
+      border-radius: 10px;
+      padding: 24px;
+      margin-bottom: 22px;
+      box-shadow: 0 2px 12px #0000000c;
+    }
+
+    h2 {
+      margin-top: 0;
+      color: #b5121b;
+    }
+
+    h3 {
+      margin-top: 24px;
+    }
+
+    label {
+      display: block;
+      margin: 16px 0 6px;
+      font-weight: bold;
+      font-size: 14px;
+    }
+
+    input,
+    textarea,
+    select {
+      display: block;
+      width: 100%;
+      padding: 12px;
+      border: 1px solid #cbd0d6;
+      border-radius: 6px;
+      background: white;
+      font: inherit;
+    }
+
+    textarea {
+      resize: vertical;
+      min-height: 100px;
+    }
+
+    input:focus,
+    textarea:focus,
+    select:focus {
+      outline: 2px solid #e8a1a6;
+      border-color: #b5121b;
+    }
+
+    button {
+      padding: 12px 16px;
+      border: 0;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: bold;
+      margin: 8px 8px 0 0;
+      background: #b5121b;
+      color: white;
+    }
+
+    button:hover {
+      filter: brightness(.92);
+    }
+
+    button:disabled {
+      opacity: .6;
+      cursor: wait;
+    }
+
+    .secondary {
+      background: #343a40;
+    }
+
+    .draft-button {
+      background: #176b45;
+    }
+
+    .danger {
+      background: #8b1e27;
+    }
+
+    #status {
+      padding: 12px;
+      background: #f4f5f6;
+      border-left: 4px solid #b5121b;
+      border-radius: 4px;
+      overflow-wrap: anywhere;
+    }
+
+    #admin-panel[hidden],
+    #login-panel[hidden] {
+      display: none !important;
+    }
+
+    .hint {
+      color: #606770;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .draft-item {
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 14px;
+      margin: 12px 0;
+      overflow-wrap: anywhere;
+    }
+
+    .draft-item strong {
+      display: block;
+      margin-bottom: 6px;
+    }
+
+    footer {
+      text-align: center;
+      padding: 20px;
+      background: #111;
+      color: #ddd;
+      font-size: 12px;
+    }
+
+    @media (max-width: 600px) {
+      main {
+        margin-top: 18px;
+        padding-left: 12px;
+        padding-right: 12px;
+      }
+
+      .panel {
+        padding: 18px;
+      }
+
+      button {
+        width: 100%;
+        margin-right: 0;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <header>
+    <div class="header-inner">
+      <h1>MARILIA<span>JA</span></h1>
+      <p>PAINEL ADMINISTRATIVO · GERENCIAMENTO DE NOTÍCIAS</p>
+    </div>
+  </header>
+
+  <main>
+    <section class="panel" id="login-panel">
+      <h2>Acesso administrativo</h2>
+      <p>Entre com seu e-mail e senha autorizados no Firebase.</p>
+
+      <form id="login-form">
+        <label for="email">E-mail</label>
+        <input
+          id="email"
+          type="email"
+          autocomplete="username"
+          required
+        >
+
+        <label for="password">Senha</label>
+        <input
+          id="password"
+          type="password"
+          autocomplete="current-password"
+          required
+        >
+
+        <button type="submit">Entrar</button>
+      </form>
+
+      <p class="hint">
+        O acesso administrativo depende da autenticação e das permissões
+        configuradas no Firebase.
+      </p>
+    </section>
+
+    <section class="panel" id="admin-panel" hidden>
+      <h2>Área de notícias</h2>
+
+      <p id="status" role="status" aria-live="polite">
+        Verificando acesso...
+      </p>
+
+      <div id="editor">
+        <h3 id="editor-title">Nova notícia</h3>
+
+        <label for="news-title">Título da notícia</label>
+        <input
+          id="news-title"
+          type="text"
+          maxlength="200"
+          placeholder="Digite o título"
+        >
+
+        <label for="news-category">Categoria</label>
+        <select id="news-category">
+          <option value="Cidade">Cidade</option>
+          <option value="Polícia">Polícia</option>
+          <option value="Política">Política</option>
+          <option value="Região">Região</option>
+          <option value="Esportes">Esportes</option>
+          <option value="Variedades">Variedades</option>
+          <option value="Geral" selected>Geral</option>
+        </select>
+
+        <label for="news-summary">Resumo</label>
+        <textarea
+          id="news-summary"
+          rows="3"
+          placeholder="Escreva um resumo da notícia"
+        ></textarea>
+
+        <label for="news-image">URL da imagem</label>
+        <input
+          id="news-image"
+          type="url"
+          placeholder="https://..."
+        >
+
+        <label for="news-content">Texto da notícia</label>
+        <textarea
+          id="news-content"
+          rows="14"
+          placeholder="Escreva o conteúdo completo da matéria"
+        ></textarea>
+
+        <p class="hint">
+          Salvar rascunho não publica a matéria. A publicação só acontece
+          quando você clicar no botão Publicar notícia.
+        </p>
+
+        <div class="editor-actions">
+          <button type="button" id="save-draft" class="draft-button">
+            Salvar rascunho
+          </button>
+
+          <button type="button" id="publish-news">
+            Publicar notícia
+          </button>
+
+          <button type="button" id="new-news" class="secondary">
+            Nova notícia
+          </button>
+
+          <button type="button" id="show-drafts" class="secondary">
+            Meus rascunhos
+          </button>
+
+          <button type="button" id="logout" class="danger">
+            Sair
+          </button>
+        </div>
+      </div>
+
+      <section id="draft-list-section">
+        <h3>Rascunhos salvos</h3>
+        <div id="draft-list">
+          <p class="hint">Os rascunhos serão carregados após o acesso.</p>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <footer>
+    MARILIAJA · Painel administrativo
+  </footer>
+
+  <script type="module" src="./assets/js/admin.js"></script>
+</body>
+</html>

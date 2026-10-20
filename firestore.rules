@@ -1,0 +1,91 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function isAdmin() {
+      return signedIn() && (
+        request.auth.token.email == 'tomsoftwar@gmail.com' ||
+        request.auth.token.email == 'mendsassessoria@gmail.com' ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin') ||
+        (exists(/databases/$(database)/documents/admins/$(request.auth.uid)) &&
+          get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.ativo == true)
+      );
+    }
+    function isEditor() {
+      return signedIn() && (
+        isAdmin() ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['editor', 'admin']) ||
+        (request.auth.token.email != null &&
+          exists(/databases/$(database)/documents/collaborators/$(request.auth.token.email)))
+      );
+    }
+    function validNews() {
+      return request.resource.data.title is string && request.resource.data.title.size() > 0 &&
+        request.resource.data.title.size() <= 200 &&
+        request.resource.data.content is string &&
+        (!('summary' in request.resource.data) || request.resource.data.summary is string) &&
+        (!('category' in request.resource.data) || request.resource.data.category is string) &&
+        (!('imageUrl' in request.resource.data) || request.resource.data.imageUrl is string) &&
+        request.resource.data.authorId == request.auth.uid;
+    }
+
+    // The logged-in user can read their own admin profile to complete the panel login check.
+    match /admins/{uid} {
+      allow read: if signedIn() && (request.auth.uid == uid || isAdmin());
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /users/{uid} {
+      allow read: if signedIn() && (request.auth.uid == uid || isAdmin());
+      allow create: if signedIn() && request.auth.uid == uid &&
+        request.resource.data.email == request.auth.token.email;
+      allow update, delete: if isAdmin();
+    }
+
+    match /collaborators/{email} {
+      allow read: if signedIn() && (request.auth.token.email == email || isAdmin());
+      allow create, update, delete: if isAdmin();
+    }
+
+    // Published articles are public. Legacy documents without a published flag remain visible.
+    match /noticias/{newsId} {
+      allow read: if isAdmin() || !('published' in resource.data) || resource.data.published == true;
+      allow create: if isEditor() && validNews() &&
+        request.resource.data.createdAt == request.time &&
+        (!('published' in request.resource.data) || request.resource.data.published is bool);
+      allow update: if isEditor() && validNews() &&
+        (isAdmin() || resource.data.authorId == request.auth.uid);
+      allow delete: if isAdmin() || (isEditor() && resource.data.authorId == request.auth.uid);
+    }
+
+    // Backwards compatibility for deployments that used the collection name "news".
+    match /news/{newsId} {
+      allow read: if isAdmin() || !('published' in resource.data) || resource.data.published == true;
+      allow create: if isEditor() && validNews();
+      allow update: if isEditor() && validNews() &&
+        (isAdmin() || resource.data.authorId == request.auth.uid);
+      allow delete: if isAdmin() || (isEditor() && resource.data.authorId == request.auth.uid);
+    }
+
+    match /rascunhos/{draftId} {
+      allow read: if isAdmin() || (signedIn() && resource.data.authorId == request.auth.uid);
+      allow create: if isEditor() && request.resource.data.authorId == request.auth.uid &&
+        request.resource.data.title is string && request.resource.data.content is string;
+      allow update: if isEditor() &&
+        (isAdmin() || resource.data.authorId == request.auth.uid) &&
+        request.resource.data.authorId == resource.data.authorId;
+      allow delete: if isAdmin() || (signedIn() && resource.data.authorId == request.auth.uid);
+    }
+
+    match /contacts/{contactId} {
+      allow create: if request.resource.data.keys().hasAll(['name', 'email', 'message', 'createdAt']) &&
+        request.resource.data.name is string && request.resource.data.email is string &&
+        request.resource.data.message is string && request.resource.data.createdAt == request.time;
+      allow read, update, delete: if isAdmin();
+    }
+
+    match /{document=**} { allow read, write: if false; }
+  }
+}
